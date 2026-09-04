@@ -5,10 +5,14 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, Plus, Wallet, Coffee, Train, ShoppingCart, Tag, Edit2, Trash2 } from 'lucide-react-native';
 import tw, { useAppColorScheme } from 'twrnc';
 import { getCategories, addCategory, updateCategory, deleteCategory, Category } from '../db/database';
-import ColorPicker, { Preview, Swatches } from 'reanimated-color-picker';
+// Custom color grid replaces third-party picker for stability
 import { IconMap, AVAILABLE_ICONS } from '../utils/Icons';
 
-const AVAILABLE_COLORS = ['#10b981', '#f97316', '#3b82f6', '#8b5cf6', '#ef4444', '#f59e0b', '#06b6d4', '#ec4899'];
+const AVAILABLE_COLORS = [
+  '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', 
+  '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', 
+  '#d946ef', '#ec4899', '#f43f5e', '#94a3b8', '#1e293b', '#64748b', '#78716c'
+];
 
 export default function CategoriesScreen() {
   const router = useRouter();
@@ -139,15 +143,28 @@ export default function CategoriesScreen() {
             </View>
 
             <Text style={tw`text-sm font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider`}>Color</Text>
-            <View style={tw`w-full mb-6 items-center`}>
-              <ColorPicker
-                style={{ width: '100%', gap: 16, alignItems: 'center' }}
-                value={color}
-                onComplete={({ hex }) => setColor(hex)}
-              >
-                <Preview style={tw`w-full h-10 rounded-xl mb-2`} hideInitialColor />
-                <Swatches style={tw`mt-2`} colors={AVAILABLE_COLORS} />
-              </ColorPicker>
+            <View style={tw`mb-8`}>
+              <View style={tw`flex-row flex-wrap gap-4`}>
+                {AVAILABLE_COLORS.map(c => {
+                  const isSelected = color === c;
+                  return (
+                    <TouchableOpacity 
+                      key={c}
+                      onPress={() => setColor(c)}
+                      style={[
+                        tw`w-10 h-10 rounded-full border-[3px]`,
+                        { backgroundColor: c, borderColor: isSelected ? (colorScheme === 'dark' ? '#ffffff' : '#333333') : 'transparent' }
+                      ]}
+                    >
+                      {isSelected && (
+                        <View style={tw`flex-1 items-center justify-center`}>
+                          <View style={tw`w-3 h-3 bg-white rounded-full shadow-sm`} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
             <View style={tw`flex-row space-x-3 gap-3`}>
