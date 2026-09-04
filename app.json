@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "FinanceManagerApp",
+    "name": "SPENT 1.01",
     "slug": "finance-manager-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -23,7 +23,12 @@
     },
     "android": {
       "package": "com.justine.spent",
-      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"],
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#141218"
@@ -41,6 +46,12 @@
           "faceIDPermission": "Allow Spent App to use Face ID."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "495969d1-757e-41ee-b39e-36419c1f0cb3"
+      }
+    }
   }
 }

@@ -3,11 +3,23 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw, { useAppColorScheme } from 'twrnc';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getUserProfile } from '../db/database';
+import React, { useEffect } from 'react';
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
+
+  useEffect(() => {
+    try {
+      const p = getUserProfile();
+      // If the default 'U' was changed, or if biometrics are enabled, we know they're returning
+      if (p.biometrics_enabled === 1 || p.name !== 'John Doe') {
+        router.replace('/(tabs)');
+      }
+    } catch(e) {}
+  }, []);
 
   return (
     <View style={tw`flex-1 relative`}>

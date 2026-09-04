@@ -120,20 +120,22 @@ export default function CategoriesScreen() {
             />
 
             <Text style={tw`text-sm font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider`}>Icon</Text>
-            <View style={tw`flex-row flex-wrap gap-3 mb-5`}>
-              {AVAILABLE_ICONS.map(i => {
-                const IconComp = IconMap[i];
-                const isSelected = icon === i;
-                return (
-                  <TouchableOpacity 
-                    key={i} 
-                    onPress={() => setIcon(i)}
-                    style={tw`w-12 h-12 rounded-full items-center justify-center border-2 ${isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 dark:border-blue-500/30' : 'border-slate-100 dark:border-slate-800 bg-[#F3EDF7] dark:bg-[#211F26]'}`}
-                  >
-                    <IconComp size={20} color={isSelected ? '#3b82f6' : '#94a3b8'} />
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={tw`mb-5`}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={tw`flex-row gap-3 py-1 pr-6`}>
+                {AVAILABLE_ICONS.map(i => {
+                  const IconComp = IconMap[i];
+                  const isSelected = icon === i;
+                  return (
+                    <TouchableOpacity 
+                      key={i} 
+                      onPress={() => setIcon(i)}
+                      style={tw`w-12 h-12 rounded-full items-center justify-center border-2 ${isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10 dark:border-blue-500/30' : 'border-slate-100 dark:border-slate-800 bg-[#F3EDF7] dark:bg-[#211F26]'}`}
+                    >
+                      <IconComp size={20} color={isSelected ? '#3b82f6' : '#94a3b8'} />
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
 
             <Text style={tw`text-sm font-bold text-slate-500 dark:text-slate-400 mb-3 uppercase tracking-wider`}>Color</Text>

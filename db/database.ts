@@ -173,7 +173,7 @@ const initDatabase = (database: SQLite.SQLiteDatabase) => {
   const accountsCount = database.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM accounts`);
   if (accountsCount && accountsCount.count === 0) {
     database.runSync(`INSERT INTO accounts (name, type, balance) VALUES (?, ?, ?)`, ['Cash', 'cash', 0]);
-    database.runSync(`INSERT INTO accounts (name, type, balance) VALUES (?, ?, ?)`, ['Main Bank', 'bank', 3500]);
+    database.runSync(`INSERT INTO accounts (name, type, balance) VALUES (?, ?, ?)`, ['Main Bank', 'bank', 0]);
   }
 
   const catCount = database.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM categories`);
@@ -479,26 +479,6 @@ export const importBackupJSON = (jsonString: string): void => {
 };
 
 export const seedMockDataIfNeeded = () => {
-  if (isWebFallback) return;
-  const database = getDB();
-  const txCount = database.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM transactions`);
-  
-  if (txCount && txCount.count === 0) {
-    const defaultAccountId = 2; // Main Bank
-    const today = new Date().toISOString();
-    
-    database.runSync(
-      `INSERT INTO transactions (title, amount, type, date, category, account_id) VALUES (?, ?, ?, ?, ?, ?)`,
-      ['Initial Salary', 3500, 'income', today, 'Salary', defaultAccountId]
-    );
-    database.runSync(
-      `INSERT INTO transactions (title, amount, type, date, category, account_id) VALUES (?, ?, ?, ?, ?, ?)`,
-      ['Groceries', -120.50, 'expense', today, 'Shopping', defaultAccountId]
-    );
-    
-    database.runSync(
-      `UPDATE accounts SET balance = balance + ? WHERE id = ?`,
-      [3379.50, defaultAccountId]
-    );
-  }
+  // Purposefully leaving this empty to prevent pre-built balances and transactions 
+  // from appearing when the user wipes data or starts fresh.
 };

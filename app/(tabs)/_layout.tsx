@@ -18,14 +18,7 @@ export default function TabLayout() {
       headerShown: false,
       tabBarActiveTintColor: isDark ? '#60a5fa' : '#2563eb',
       tabBarInactiveTintColor: isDark ? '#94a3b8' : '#64748b',
-      tabBarStyle: {
-        borderTopWidth: 1,
-        borderTopColor: isDark ? '#49454F' : '#F4EFF4',
-        backgroundColor: isDark ? '#141218' : '#FEF7FF',
-        height: 60,
-        paddingBottom: 8,
-        paddingTop: 8,
-      }
+      tabBarStyle: tw`bg-[#FEF7FF] dark:bg-[#141218] border-t border-[#F4EFF4] dark:border-[#49454F] h-[60px] pb-2 pt-2`
     }} sceneContainerStyle={{ backgroundColor: isDark ? '#141218' : '#FEF7FF' }}>
       <Tabs.Screen
         name="index"
