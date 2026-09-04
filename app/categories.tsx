@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, Plus, Wallet, Coffee, Train, ShoppingCart, Tag, Edit2, Trash2 } from 'lucide-react-native';
 import tw, { useAppColorScheme } from 'twrnc';
 import { getCategories, addCategory, updateCategory, deleteCategory, Category } from '../db/database';
-import ColorPicker, { Panel3, Preview, HueSlider, Swatches } from 'reanimated-color-picker';
+import ColorPicker, { Preview, Swatches } from 'reanimated-color-picker';
 import { IconMap, AVAILABLE_ICONS } from '../utils/Icons';
 
 const AVAILABLE_COLORS = ['#10b981', '#f97316', '#3b82f6', '#8b5cf6', '#ef4444', '#f59e0b', '#06b6d4', '#ec4899'];
@@ -95,7 +95,7 @@ export default function CategoriesScreen() {
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={tw`flex-1`}>
-        <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled={true} style={tw`flex-1 px-6 pt-6`}>
+        <ScrollView keyboardShouldPersistTaps="handled" style={tw`flex-1 px-6 pt-6`}>
           
           <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] p-6 rounded-3xl shadow-sm shadow-slate-200 dark:shadow-none mb-8 border border-slate-50 dark:border-slate-800`}>
             <Text style={tw`text-lg font-bold text-slate-800 dark:text-white mb-4`}>
@@ -146,8 +146,6 @@ export default function CategoriesScreen() {
                 onComplete={({ hex }) => setColor(hex)}
               >
                 <Preview style={tw`w-full h-10 rounded-xl mb-2`} hideInitialColor />
-                <Panel3 style={{ width: 200, height: 200, borderRadius: 100 }} />
-                <HueSlider style={{ width: '100%', height: 20, borderRadius: 10 }} />
                 <Swatches style={tw`mt-2`} colors={AVAILABLE_COLORS} />
               </ColorPicker>
             </View>
