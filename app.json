@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "FinanceManagerApp",
+    "slug": "finance-manager-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#141218"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.justine.spent",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Spent needs Face ID to secure your financial data."
+      }
+    },
+    "android": {
+      "package": "com.justine.spent",
+      "permissions": ["USE_BIOMETRIC", "USE_FINGERPRINT"],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#141218"
+      }
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
+    },
+    "scheme": "financemanager",
+    "plugins": [
+      "expo-router",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Spent App to use Face ID."
+        }
+      ]
+    ]
+  }
+}
