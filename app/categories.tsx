@@ -95,7 +95,7 @@ export default function CategoriesScreen() {
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={tw`flex-1`}>
-        <ScrollView style={tw`flex-1 px-6 pt-6`}>
+        <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled={true} style={tw`flex-1 px-6 pt-6`}>
           
           <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] p-6 rounded-3xl shadow-sm shadow-slate-200 dark:shadow-none mb-8 border border-slate-50 dark:border-slate-800`}>
             <Text style={tw`text-lg font-bold text-slate-800 dark:text-white mb-4`}>

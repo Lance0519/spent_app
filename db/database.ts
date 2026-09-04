@@ -13,12 +13,9 @@ const mockDb = {
   ],
   accounts: [
     { id: 1, name: 'Cash', type: 'cash', balance: 0, currency: 'PHP' },
-    { id: 2, name: 'Main Bank', type: 'bank', balance: 3379.50, currency: 'PHP' }
+    { id: 2, name: 'Main Bank', type: 'bank', balance: 0, currency: 'PHP' }
   ],
-  transactions: [
-    { id: 1, title: 'Groceries', amount: -120.50, type: 'expense', date: new Date().toISOString(), category: 'Shopping', account_id: 2 },
-    { id: 2, title: 'Initial Salary', amount: 3500, type: 'income', date: new Date().toISOString(), category: 'Salary', account_id: 2 }
-  ]
+  transactions: []
 };
 
 export const getDB = (): SQLite.SQLiteDatabase | any => {
