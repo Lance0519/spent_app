@@ -4,7 +4,8 @@ import {
   Laptop, Smartphone, Car, Bus, Fuel, Gift, Zap, 
   Umbrella, Scissors, Baby, PawPrint, Music, MonitorPlay, 
   Book, Shield, Briefcase, PiggyBank, TrendingUp, DollarSign,
-  Dumbbell, Crosshair, Wrench, Package, Utensils
+  Dumbbell, Crosshair, Wrench, Package, Utensils,
+  CreditCard, Landmark
 } from 'lucide-react-native';
 
 export const IconMap: Record<string, any> = {
@@ -41,7 +42,9 @@ export const IconMap: Record<string, any> = {
   'crosshair': Crosshair,
   'wrench': Wrench,
   'package': Package,
-  'utensils': Utensils
+  'utensils': Utensils,
+  'credit-card': CreditCard,
+  'landmark': Landmark
 };
 
 export const AVAILABLE_ICONS = Object.keys(IconMap);

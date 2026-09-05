@@ -27,6 +27,7 @@ import {
 } from '../../db/database';
 import { checkAndTriggerBudgetWarning } from '../../services/NotificationService';
 import { IconMap } from '../../utils/Icons';
+import { useTheme } from '../../context/ThemeContext';
 
 type Transaction = {
   id: number;
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const snapPoints = useMemo(() => ['92%'], []);
   const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
+  const { accentColor, palette, textPrimary, textSecondary, textMuted, textOnAccent } = useTheme();
   
   // Transaction Form State
   const [amount, setAmount] = useState('0');
@@ -349,7 +351,7 @@ export default function Dashboard() {
   return (
     <View style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218] relative`}>
       <LinearGradient
-        colors={isDark ? ['#141218', '#2B2930'] : ['#1e40af', '#3b82f6']}
+        colors={isDark ? ['#141218', '#2B2930'] : [palette.dark, palette.light]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={tw`pt-14 pb-8 px-6 rounded-b-3xl overflow-hidden border-b border-slate-800/50`}
@@ -389,13 +391,13 @@ export default function Dashboard() {
             <View style={tw`w-14 h-14 bg-[#F4EFF4] dark:bg-[#49454F] rounded-full items-center justify-center shadow-sm shadow-slate-200 dark:shadow-none mb-2 border border-slate-100 dark:border-slate-800`}>
               <action.icon size={24} color={action.color} />
             </View>
-            <Text style={tw`text-xs font-bold text-slate-600 dark:text-slate-400`}>{action.label}</Text>
+            <Text style={[tw`text-xs font-bold`, { color: textSecondary }]}>{action.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       <View style={tw`flex-1 px-6 pb-6`}>
-        <Text style={tw`text-lg font-black text-slate-800 dark:text-white mb-3`}>Recent Transactions</Text>
+        <Text style={[tw`text-lg font-black mb-3`, { color: textPrimary }]}>Recent Transactions</Text>
         <View style={tw`flex-1 bg-[#F4EFF4] dark:bg-[#49454F] rounded-3xl p-4 shadow-sm shadow-slate-200 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden`}>
           <FlashList
             data={transactions}
@@ -413,9 +415,9 @@ export default function Dashboard() {
                       <IconComp size={20} color={catColor} />
                     </View>
                     <View style={tw`flex-1`}>
-                      <Text style={tw`text-base font-bold text-slate-800 dark:text-slate-100`} numberOfLines={1}>{item.title}</Text>
+                      <Text style={[tw`text-base font-bold`, { color: textPrimary }]} numberOfLines={1}>{item.title}</Text>
                       <View style={tw`flex-row items-center gap-1.5 mt-0.5`}>
-                        <Text style={tw`text-xs font-semibold text-slate-400 dark:text-slate-500`}>{item.category}</Text>
+                        <Text style={[tw`text-xs font-semibold`, { color: textMuted }]}>{item.category}</Text>
                         {isLoan && item.due_date && (
                           <View style={tw`bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded-full flex-row items-center`}>
                             <Clock size={10} color="#f59e0b" style={tw`mr-1`} />
@@ -427,7 +429,7 @@ export default function Dashboard() {
                       </View>
                     </View>
                   </View>
-                  <Text style={tw`text-base font-black ${isIncome ? 'text-emerald-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                  <Text style={[tw`text-base font-black`, isIncome ? tw`text-emerald-500` : { color: textPrimary }]}>
                     {isIncome ? '+' : '-'}₱{Math.abs(item.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                   </Text>
                 </TouchableOpacity>
@@ -438,10 +440,10 @@ export default function Dashboard() {
       </View>
 
       <TouchableOpacity
-        style={[tw`absolute bottom-6 right-6 w-16 h-16 rounded-full shadow-xl shadow-blue-500/30`, { elevation: 10 }]}
+        style={[tw`absolute bottom-6 right-6 w-16 h-16 rounded-full shadow-xl`, { elevation: 10, shadowColor: accentColor }]}
         onPress={openAddModal}
       >
-        <LinearGradient colors={['#3b82f6', '#4f46e5']} style={tw`w-full h-full rounded-full items-center justify-center`}>
+        <LinearGradient colors={[palette.light, palette.dark]} style={tw`w-full h-full rounded-full items-center justify-center`}>
           <Plus color="#fff" size={28} />
         </LinearGradient>
       </TouchableOpacity>
@@ -507,13 +509,13 @@ export default function Dashboard() {
           {/* Balanced Amount & Currency Display with Live Formula Preview */}
           <View style={tw`items-center justify-center my-2`}>
             {currentMathResult !== null && (
-              <Text style={tw`text-xs font-bold text-blue-500 mb-1`}>
+              <Text style={[tw`text-xs font-bold mb-1`, { color: accentColor }]}>
                 = ₱{currentMathResult.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
               </Text>
             )}
             <View style={tw`flex-row items-center justify-center`}>
-              <Text style={tw`text-3xl font-black text-slate-400 dark:text-slate-500 mr-1.5`}>₱</Text>
-              <Text style={tw`text-5xl font-black text-slate-800 dark:text-white tracking-tight`} numberOfLines={1}>
+              <Text style={[tw`text-3xl font-black mr-1.5`, { color: textMuted }]}>₱</Text>
+              <Text style={[tw`text-5xl font-black tracking-tight`, { color: textPrimary }]} numberOfLines={1}>
                 {amount}
               </Text>
             </View>
@@ -526,7 +528,7 @@ export default function Dashboard() {
               style={tw`flex-row items-center bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-full`}
             >
               <Calendar size={14} color="#64748b" style={tw`mr-1.5`} />
-              <Text style={tw`text-xs font-bold text-slate-700 dark:text-slate-300`}>
+              <Text style={[tw`text-xs font-bold`, { color: textPrimary }]}>
                 {formatDateLabel(selectedDate)}
               </Text>
             </TouchableOpacity>
@@ -546,11 +548,11 @@ export default function Dashboard() {
 
           {/* Payment Account Selector */}
           <View style={tw`mb-2`}>
-            <Text style={tw`text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider`}>Account / Payment Method</Text>
+            <Text style={[tw`text-[11px] font-bold mb-1 uppercase tracking-wider`, { color: textMuted }]}>Account / Payment Method</Text>
             <GestureScrollView 
               horizontal 
               nestedScrollEnabled={true} 
-              showsHorizontalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false} 
               contentContainerStyle={tw`flex-row gap-2 pr-4`}
             >
               {accounts.map(acc => {
@@ -562,15 +564,15 @@ export default function Dashboard() {
                     style={[
                       tw`flex-row items-center border px-3 py-1.5 rounded-xl`,
                       isSelected 
-                        ? tw`bg-blue-600 border-blue-600` 
+                        ? [{ backgroundColor: accentColor, borderColor: accentColor }] 
                         : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-200 dark:border-slate-800`
                     ]}
                   >
-                    {acc.type === 'cash' ? <Wallet size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
-                     acc.type === 'ewallet' ? <Smartphone size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
-                     acc.type === 'credit' ? <CreditCard size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
-                     <Building2 size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} />}
-                    <Text style={[tw`font-bold text-xs`, isSelected ? tw`text-white` : tw`text-slate-600 dark:text-slate-300`]}>
+                    {acc.type === 'cash' ? <Wallet size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
+                     acc.type === 'ewallet' ? <Smartphone size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
+                     acc.type === 'credit' ? <CreditCard size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
+                     <Building2 size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} />}
+                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? textOnAccent : textSecondary }]}>
                       {acc.name}
                     </Text>
                   </TouchableOpacity>
@@ -581,7 +583,7 @@ export default function Dashboard() {
 
           {/* Categories Selector with Smooth Horizontal Scrolling Fix */}
           <View style={tw`mb-3`}>
-            <Text style={tw`text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider`}>Category</Text>
+            <Text style={[tw`text-[11px] font-bold mb-1 uppercase tracking-wider`, { color: textMuted }]}>Category</Text>
             <GestureScrollView 
               horizontal 
               nestedScrollEnabled={true} 
@@ -607,18 +609,31 @@ export default function Dashboard() {
                     ) : (
                       <IconComp size={14} color={cat.color} style={tw`mr-1.5`} />
                     )}
-                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? '#fff' : (isDark ? '#cbd5e1' : '#64748b') }]}>
+                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? '#fff' : textSecondary }]}>
                       {cat.name}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
+              <TouchableOpacity 
+                onPress={() => {
+                  bottomSheetRef.current?.close();
+                  router.push('/categories');
+                }} 
+                style={[
+                  tw`flex-row items-center border border-dashed px-3 py-1.5 rounded-full`,
+                  { borderColor: accentColor, backgroundColor: `${accentColor}12` }
+                ]}
+              >
+                <Plus size={14} color={accentColor} style={tw`mr-1`} />
+                <Text style={[tw`font-bold text-xs`, { color: accentColor }]}>Add</Text>
+              </TouchableOpacity>
             </GestureScrollView>
           </View>
 
           {/* Note Input */}
           <TextInput 
-            style={tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800 dark:text-white mb-2`} 
+            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-4 py-2.5 rounded-xl text-sm font-semibold mb-2`, { color: textPrimary }]} 
             placeholderTextColor="#64748b" 
             placeholder="Note / Description (e.g. Lunch with friends)" 
             value={title} 
@@ -644,14 +659,14 @@ export default function Dashboard() {
                         style={[
                           tw`flex-1 h-13 rounded-2xl items-center justify-center border`,
                           isOp 
-                            ? tw`bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30` 
+                            ? [{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}35` }] 
                             : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-100 dark:border-slate-800`
                         ]}
                       >
                         {key === 'del' ? (
                           <Delete color="#94a3b8" size={20} />
                         ) : (
-                          <Text style={[tw`text-xl font-bold`, isOp ? tw`text-blue-600 dark:text-blue-400` : tw`text-slate-700 dark:text-slate-200`]}>
+                          <Text style={[tw`text-xl font-bold`, isOp ? { color: accentColor } : { color: textPrimary }]}>
                             {key}
                           </Text>
                         )}
@@ -672,9 +687,9 @@ export default function Dashboard() {
                 )}
                 <TouchableOpacity 
                   onPress={handleAddTransaction} 
-                  style={tw`flex-2 bg-blue-600 py-3.5 rounded-xl items-center`}
+                  style={[tw`flex-2 py-3.5 rounded-xl items-center shadow-md`, { backgroundColor: accentColor }]}
                 >
-                  <Text style={tw`text-white font-bold text-base`}>
+                  <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>
                     {selectedTxId ? 'Save Changes' : 'Save Transaction'}
                   </Text>
                 </TouchableOpacity>
@@ -684,9 +699,9 @@ export default function Dashboard() {
             <View style={tw`mt-auto pt-2`}>
               <TouchableOpacity 
                 onPress={() => Keyboard.dismiss()} 
-                style={tw`w-full bg-blue-600 py-3.5 rounded-xl items-center`}
+                style={[tw`w-full py-3.5 rounded-xl items-center shadow-md`, { backgroundColor: accentColor }]}
               >
-                <Text style={tw`text-white font-bold text-base`}>Done Typing</Text>
+                <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Done Typing</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -698,14 +713,14 @@ export default function Dashboard() {
       <Modal visible={showDatePicker} transparent animationType="fade">
         <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
           <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
-            <Text style={tw`text-lg font-bold text-slate-800 dark:text-white mb-4`}>Select Transaction Date</Text>
+            <Text style={[tw`text-lg font-bold mb-4`, { color: textPrimary }]}>Select Transaction Date</Text>
             
             <View style={tw`gap-2 mb-4`}>
               <TouchableOpacity 
                 onPress={() => { setSelectedDate(new Date().toISOString()); setShowDatePicker(false); }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>Today</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>Today</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -717,7 +732,7 @@ export default function Dashboard() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>Yesterday</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>Yesterday</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -729,12 +744,12 @@ export default function Dashboard() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>2 Days Ago</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>2 Days Ago</Text>
               </TouchableOpacity>
             </View>
 
             <TextInput 
-              style={tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold text-slate-800 dark:text-white mb-4`}
+              style={[tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold mb-4`, { color: textPrimary }]}
               placeholder="Or enter YYYY-MM-DD"
               placeholderTextColor="#64748b"
               value={customDateInput}
@@ -743,7 +758,7 @@ export default function Dashboard() {
 
             <View style={tw`flex-row gap-2`}>
               <TouchableOpacity onPress={() => setShowDatePicker(false)} style={tw`flex-1 p-3 rounded-xl items-center`}>
-                <Text style={tw`font-bold text-slate-500`}>Cancel</Text>
+                <Text style={[tw`font-bold`, { color: textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 onPress={() => {
@@ -756,9 +771,9 @@ export default function Dashboard() {
                   setShowDatePicker(false);
                   setCustomDateInput('');
                 }} 
-                style={tw`flex-1 bg-blue-600 p-3 rounded-xl items-center`}
+                style={[tw`flex-1 p-3 rounded-xl items-center shadow-sm`, { backgroundColor: accentColor }]}
               >
-                <Text style={tw`text-white font-bold`}>Apply</Text>
+                <Text style={[tw`font-bold`, { color: textOnAccent }]}>Apply</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -769,8 +784,8 @@ export default function Dashboard() {
       <Modal visible={showDueDatePicker} transparent animationType="fade">
         <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
           <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
-            <Text style={tw`text-lg font-bold text-slate-800 dark:text-white mb-2`}>Loan Repayment Due Date</Text>
-            <Text style={tw`text-xs text-slate-500 dark:text-slate-400 mb-4`}>Set when this loan is scheduled to be paid.</Text>
+            <Text style={[tw`text-lg font-bold mb-2`, { color: textPrimary }]}>Loan Repayment Due Date</Text>
+            <Text style={[tw`text-xs mb-4`, { color: textMuted }]}>Set when this loan is scheduled to be paid.</Text>
             
             <View style={tw`gap-2 mb-4`}>
               <TouchableOpacity 
@@ -782,7 +797,7 @@ export default function Dashboard() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 1 Week</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 1 Week</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -794,7 +809,7 @@ export default function Dashboard() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 15 Days (Next Payday)</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 15 Days (Next Payday)</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -806,12 +821,12 @@ export default function Dashboard() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 30 Days (Next Month)</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 30 Days (Next Month)</Text>
               </TouchableOpacity>
             </View>
 
             <TextInput 
-              style={tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold text-slate-800 dark:text-white mb-4`}
+              style={[tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold mb-4`, { color: textPrimary }]}
               placeholder="Or enter YYYY-MM-DD"
               placeholderTextColor="#64748b"
               value={customDateInput}
@@ -820,7 +835,7 @@ export default function Dashboard() {
 
             <View style={tw`flex-row gap-2`}>
               <TouchableOpacity onPress={() => setShowDueDatePicker(false)} style={tw`flex-1 p-3 rounded-xl items-center`}>
-                <Text style={tw`font-bold text-slate-500`}>Cancel</Text>
+                <Text style={[tw`font-bold`, { color: textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 onPress={() => {

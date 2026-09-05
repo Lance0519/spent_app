@@ -30,20 +30,20 @@ export const checkAndTriggerBudgetWarning = async (category: string, spent: numb
   if (percentage >= 1) {
     if (Platform.OS !== 'web') {
       Alert.alert(
-        `🚨 Budget Exceeded: ${category}`,
+        `Budget Exceeded: ${category}`,
         `You have spent ₱${spent.toLocaleString()} and exceeded your ₱${limit.toLocaleString()} limit for ${category}.`
       );
     } else {
-      window.alert(`🚨 Budget Exceeded: ${category}\nYou have spent ₱${spent} and exceeded your ₱${limit} limit.`);
+      window.alert(`Budget Exceeded: ${category}\nYou have spent ₱${spent} and exceeded your ₱${limit} limit.`);
     }
   } else if (percentage >= 0.90) {
     if (Platform.OS !== 'web') {
       Alert.alert(
-        `⚠️ Budget Warning: ${category}`,
+        `Budget Warning: ${category}`,
         `You have used ${(percentage * 100).toFixed(0)}% of your ₱${limit.toLocaleString()} limit for ${category}.`
       );
     } else {
-      window.alert(`⚠️ Budget Warning: ${category}\nYou have used ${(percentage * 100).toFixed(0)}% of your limit.`);
+      window.alert(`Budget Warning: ${category}\nYou have used ${(percentage * 100).toFixed(0)}% of your limit.`);
     }
   }
 };

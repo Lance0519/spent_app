@@ -2,7 +2,7 @@
   "expo": {
     "name": "SPENT",
     "slug": "finance-manager-app",
-    "version": "1.00.2",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

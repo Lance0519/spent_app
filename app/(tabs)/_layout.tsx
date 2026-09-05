@@ -3,10 +3,12 @@ import tw, { useAppColorScheme } from 'twrnc';
 import { Tabs } from 'expo-router';
 import { Home, List, User, Target } from 'lucide-react-native';
 import { setupNotificationHandler, registerForPushNotificationsAsync } from '../../services/NotificationService';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function TabLayout() {
   const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
+  const { accentColor, textSecondary } = useTheme();
 
   useEffect(() => {
     setupNotificationHandler();
@@ -16,8 +18,8 @@ export default function TabLayout() {
   return (
     <Tabs screenOptions={{ 
       headerShown: false,
-      tabBarActiveTintColor: isDark ? '#60a5fa' : '#2563eb',
-      tabBarInactiveTintColor: isDark ? '#94a3b8' : '#64748b',
+      tabBarActiveTintColor: accentColor,
+      tabBarInactiveTintColor: textSecondary,
       tabBarStyle: tw`bg-[#FEF7FF] dark:bg-[#141218] border-t border-[#F4EFF4] dark:border-[#49454F] h-[60px] pb-2 pt-2`,
       sceneStyle: { backgroundColor: isDark ? '#141218' : '#FEF7FF' }
     }}>

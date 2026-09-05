@@ -4,23 +4,55 @@ import { Platform } from 'react-native';
 let db: SQLite.SQLiteDatabase | null = null;
 let isWebFallback = false;
 
+export type Category = {
+  id: number;
+  name: string;
+  icon: string;
+  color: string;
+  type: string;
+};
+
+export const DEFAULT_BUILTIN_CATEGORIES: Omit<Category, 'id'>[] = [
+  // Expense categories
+  { name: 'Food', icon: 'coffee', color: '#f97316', type: 'expense' },
+  { name: 'Groceries', icon: 'shopping-cart', color: '#ea580c', type: 'expense' },
+  { name: 'Transport', icon: 'train', color: '#3b82f6', type: 'expense' },
+  { name: 'Fuel', icon: 'fuel', color: '#0284c7', type: 'expense' },
+  { name: 'Bills & Utilities', icon: 'zap', color: '#ef4444', type: 'expense' },
+  { name: 'Housing & Rent', icon: 'home', color: '#8b5cf6', type: 'expense' },
+  { name: 'Healthcare', icon: 'heart-pulse', color: '#e11d48', type: 'expense' },
+  { name: 'Shopping', icon: 'package', color: '#ec4899', type: 'expense' },
+  { name: 'Entertainment', icon: 'gamepad-2', color: '#a855f7', type: 'expense' },
+  { name: 'Education', icon: 'graduation-cap', color: '#06b6d4', type: 'expense' },
+  { name: 'Travel', icon: 'plane', color: '#0ea5e9', type: 'expense' },
+  { name: 'Personal Care', icon: 'scissors', color: '#d946ef', type: 'expense' },
+  { name: 'Fitness', icon: 'dumbbell', color: '#10b981', type: 'expense' },
+  { name: 'Insurance', icon: 'shield', color: '#64748b', type: 'expense' },
+  { name: 'Gifts & Donations', icon: 'gift', color: '#f43f5e', type: 'expense' },
+
+  // Income categories
+  { name: 'Salary', icon: 'wallet', color: '#10b981', type: 'income' },
+  { name: 'Allowance', icon: 'gift', color: '#06b6d4', type: 'income' },
+  { name: 'Freelance', icon: 'laptop', color: '#3b82f6', type: 'income' },
+  { name: 'Bonus', icon: 'trending-up', color: '#8b5cf6', type: 'income' },
+  { name: 'Business', icon: 'briefcase', color: '#6366f1', type: 'income' },
+  { name: 'Investments', icon: 'trending-up', color: '#059669', type: 'income' },
+  { name: 'Rental Income', icon: 'home', color: '#14b8a6', type: 'income' },
+  { name: 'Other Income', icon: 'dollar-sign', color: '#84cc16', type: 'income' },
+
+  // Loan categories
+  { name: 'SPayLater', icon: 'shopping-cart', color: '#f97316', type: 'loan' },
+  { name: 'GLoan / Maya', icon: 'smartphone', color: '#06b6d4', type: 'loan' },
+  { name: 'Credit Card', icon: 'credit-card', color: '#ec4899', type: 'loan' },
+  { name: 'Bank Loan', icon: 'landmark', color: '#3b82f6', type: 'loan' },
+  { name: 'Personal Loan', icon: 'briefcase', color: '#8b5cf6', type: 'loan' },
+  { name: 'Borrowed', icon: 'piggy-bank', color: '#eab308', type: 'loan' },
+  { name: 'Lent', icon: 'dollar-sign', color: '#10b981', type: 'loan' },
+  { name: 'Debt Repayment', icon: 'wallet', color: '#22c55e', type: 'loan' },
+];
+
 const mockDb = {
-  categories: [
-    { id: 1, name: 'Salary', icon: 'wallet', color: '#10b981', type: 'income' },
-    { id: 2, name: 'Allowance', icon: 'gift', color: '#06b6d4', type: 'income' },
-    { id: 3, name: 'Freelance', icon: 'laptop', color: '#3b82f6', type: 'income' },
-    { id: 4, name: 'Bonus', icon: 'trending-up', color: '#8b5cf6', type: 'income' },
-    { id: 5, name: 'Food', icon: 'coffee', color: '#f97316', type: 'expense' },
-    { id: 6, name: 'Transport', icon: 'train', color: '#3b82f6', type: 'expense' },
-    { id: 7, name: 'Shopping', icon: 'shopping-cart', color: '#8b5cf6', type: 'expense' },
-    { id: 8, name: 'Bills', icon: 'zap', color: '#ef4444', type: 'expense' },
-    { id: 9, name: 'SPayLater', icon: 'shopping-cart', color: '#f97316', type: 'loan' },
-    { id: 10, name: 'GLoan / Maya', icon: 'smartphone', color: '#06b6d4', type: 'loan' },
-    { id: 11, name: 'Personal Loan', icon: 'briefcase', color: '#8b5cf6', type: 'loan' },
-    { id: 12, name: 'Borrowed', icon: 'piggy-bank', color: '#3b82f6', type: 'loan' },
-    { id: 13, name: 'Lent', icon: 'dollar-sign', color: '#10b981', type: 'loan' },
-    { id: 14, name: 'Debt Repayment', icon: 'wallet', color: '#22c55e', type: 'loan' },
-  ],
+  categories: DEFAULT_BUILTIN_CATEGORIES.map((c, idx) => ({ id: idx + 1, ...c })) as Category[],
   accounts: [
     { id: 1, name: 'Cash', type: 'cash', balance: 0, currency: 'PHP' },
     { id: 2, name: 'Main Bank', type: 'bank', balance: 0, currency: 'PHP' },
@@ -30,7 +62,15 @@ const mockDb = {
   transactions: [] as any[],
   budgets: [] as any[],
   goals: [] as any[],
-  reminders: [] as any[]
+  reminders: [] as any[],
+  profile: {
+    name: 'John Doe',
+    email: 'john.doe@example.com',
+    biometrics_enabled: 0,
+    accent_color: 'emerald',
+    currency: 'PHP',
+    hide_balance_default: 0
+  }
 };
 
 export const getDB = (): SQLite.SQLiteDatabase => {
@@ -57,7 +97,24 @@ export const getDB = (): SQLite.SQLiteDatabase => {
 
 const createMockDB = () => {
   return {
-    execSync: () => {},
+    execSync: (query: string = '') => {
+      if (query.includes('DELETE FROM split_transactions') || query.includes('DELETE FROM transactions')) {
+        mockDb.transactions = [];
+      }
+      if (query.includes('DELETE FROM budgets')) {
+        mockDb.budgets = [];
+      }
+      if (query.includes('DELETE FROM goals')) {
+        mockDb.goals = [];
+      }
+      if (query.includes('DELETE FROM reminders')) {
+        mockDb.reminders = [];
+      }
+      if (query.includes('UPDATE accounts SET balance = 0')) {
+        mockDb.accounts.forEach(a => { a.balance = 0; });
+      }
+      // Categories are intentionally preserved during wipe!
+    },
     runSync: (query: string, params: any[] = []) => {
       if (query.includes('INSERT INTO transactions')) {
         const tx = { 
@@ -117,9 +174,27 @@ const createMockDB = () => {
         if (g) g.current_amount += params[0];
       } else if (query.includes('DELETE FROM goals')) {
         mockDb.goals = mockDb.goals.filter(g => g.id !== params[0]);
+      } else if (query.includes('UPDATE user_profile SET accent_color')) {
+        mockDb.profile.accent_color = params[0];
+      } else if (query.includes('INSERT INTO user_profile') || query.includes('UPDATE user_profile')) {
+        mockDb.profile.name = params[0];
+        mockDb.profile.email = params[1];
+        if (params[2] !== undefined) mockDb.profile.biometrics_enabled = params[2];
+        if (params[3] !== undefined) mockDb.profile.accent_color = params[3];
+        if (params[4] !== undefined) mockDb.profile.currency = params[4];
+        if (params[5] !== undefined) mockDb.profile.hide_balance_default = params[5];
+      } else if (query.includes('UPDATE accounts SET name')) {
+        const id = params[4];
+        const acc = mockDb.accounts.find(a => a.id === id);
+        if (acc) { acc.name = params[0]; acc.type = params[1]; acc.balance = params[2]; acc.currency = params[3]; }
+      } else if (query.includes('DELETE FROM accounts')) {
+        mockDb.accounts = mockDb.accounts.filter(a => a.id !== params[0]);
       }
     },
     getFirstSync: (query: string, params: any[] = []) => {
+      if (query.includes('FROM user_profile')) {
+        return { ...mockDb.profile };
+      }
       if (query.includes('SUM(balance)')) {
         return { balance: mockDb.accounts.reduce((sum, a) => sum + a.balance, 0) };
       }
@@ -139,7 +214,10 @@ const createMockDB = () => {
         return mockDb.accounts.find(a => a.name.toLowerCase() === (params[0] || '').toLowerCase()) || null;
       }
       if (query.includes('SELECT id FROM categories WHERE LOWER(name) = LOWER(?)')) {
-        return mockDb.categories.find(c => c.name.toLowerCase() === (params[0] || '').toLowerCase()) || null;
+        return mockDb.categories.find(c => 
+          c.name.toLowerCase() === (params[0] || '').toLowerCase() &&
+          (params.length < 2 || !params[1] || c.type === params[1])
+        ) || null;
       }
       return null;
     },
@@ -242,7 +320,10 @@ const initDatabase = (database: SQLite.SQLiteDatabase) => {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       name TEXT NOT NULL,
       email TEXT NOT NULL,
-      biometrics_enabled INTEGER DEFAULT 0
+      biometrics_enabled INTEGER DEFAULT 0,
+      accent_color TEXT DEFAULT 'emerald',
+      currency TEXT DEFAULT 'PHP',
+      hide_balance_default INTEGER DEFAULT 0
     );
   `);
 
@@ -252,12 +333,27 @@ const initDatabase = (database: SQLite.SQLiteDatabase) => {
   } catch(e) {}
 
   try {
+    database.runSync("ALTER TABLE user_profile ADD COLUMN accent_color TEXT DEFAULT 'emerald'");
+  } catch(e) {}
+
+  try {
+    database.runSync("ALTER TABLE user_profile ADD COLUMN currency TEXT DEFAULT 'PHP'");
+  } catch(e) {}
+
+  try {
+    database.runSync("ALTER TABLE user_profile ADD COLUMN hide_balance_default INTEGER DEFAULT 0");
+  } catch(e) {}
+
+  try {
     database.runSync("ALTER TABLE transactions ADD COLUMN due_date TEXT");
   } catch(e) {}
 
   const userCount = database.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM user_profile`);
   if (userCount && userCount.count === 0) {
-    database.runSync(`INSERT INTO user_profile (id, name, email, biometrics_enabled) VALUES (1, ?, ?, 0)`, ['John Doe', 'john.doe@example.com']);
+    database.runSync(
+      `INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default) VALUES (1, ?, ?, 0, 'emerald', 'PHP', 0)`, 
+      ['John Doe', 'john.doe@example.com']
+    );
   }
 
   // Ensure Default Accounts
@@ -274,40 +370,23 @@ const initDatabase = (database: SQLite.SQLiteDatabase) => {
   ensureAccount('GCash', 'ewallet');
   ensureAccount('SPayLater', 'credit');
 
-  // Clean up any payment methods previously placed in categories
+  // One-time seeding of built-in categories so users can delete any category
+  // without it being resurrected on subsequent app launches
   try {
-    database.runSync("DELETE FROM categories WHERE LOWER(name) IN ('spaylater', 'gcash', 'cash', 'bank', 'main bank')");
+    database.runSync("ALTER TABLE user_profile ADD COLUMN categories_seeded INTEGER DEFAULT 0");
   } catch(e) {}
 
-  // Ensure Default Categories
-  const ensureCategory = (name: string, icon: string, color: string, type: string) => {
+  const prof = database.getFirstSync<{ categories_seeded?: number }>('SELECT categories_seeded FROM user_profile WHERE id = 1');
+  const catCount = database.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM categories');
+  const alreadySeeded = prof && prof.categories_seeded === 1;
+  const isEmpty = !catCount || catCount.count === 0;
+
+  if (!alreadySeeded || isEmpty) {
+    seedDefaultCategories(database);
     try {
-      const exists = database.getFirstSync<{ id: number }>('SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND type = ?', [name, type]);
-      if (!exists) {
-        database.runSync('INSERT INTO categories (name, icon, color, type) VALUES (?, ?, ?, ?)', [name, icon, color, type]);
-      }
+      database.runSync('UPDATE user_profile SET categories_seeded = 1 WHERE id = 1');
     } catch(e) {}
-  };
-
-  // Income categories
-  ensureCategory('Salary', 'wallet', '#10b981', 'income');
-  ensureCategory('Allowance', 'gift', '#06b6d4', 'income');
-  ensureCategory('Freelance', 'laptop', '#3b82f6', 'income');
-  ensureCategory('Bonus', 'trending-up', '#8b5cf6', 'income');
-
-  // Expense categories
-  ensureCategory('Food', 'coffee', '#f97316', 'expense');
-  ensureCategory('Transport', 'train', '#3b82f6', 'expense');
-  ensureCategory('Shopping', 'shopping-cart', '#8b5cf6', 'expense');
-  ensureCategory('Bills', 'zap', '#ef4444', 'expense');
-
-  // Loan categories
-  ensureCategory('SPayLater', 'shopping-cart', '#f97316', 'loan');
-  ensureCategory('GLoan / Maya', 'smartphone', '#06b6d4', 'loan');
-  ensureCategory('Personal Loan', 'briefcase', '#8b5cf6', 'loan');
-  ensureCategory('Borrowed', 'piggy-bank', '#3b82f6', 'loan');
-  ensureCategory('Lent', 'dollar-sign', '#10b981', 'loan');
-  ensureCategory('Debt Repayment', 'wallet', '#22c55e', 'loan');
+  }
 };
 
 export type Account = {
@@ -328,12 +407,61 @@ export const addAccount = (name: string, type: string, initialBalance: number = 
   db.runSync('INSERT INTO accounts (name, type, balance, currency) VALUES (?, ?, ?, ?)', [name, type, initialBalance, currency]);
 };
 
-export type Category = {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-  type: string;
+export const updateAccount = (id: number, name: string, type: string, balance: number, currency: string = 'PHP') => {
+  const db = getDB();
+  db.runSync('UPDATE accounts SET name = ?, type = ?, balance = ?, currency = ? WHERE id = ?', [name, type, balance, currency, id]);
+};
+
+export const deleteAccount = (id: number) => {
+  const db = getDB();
+  db.runSync('DELETE FROM accounts WHERE id = ?', [id]);
+};
+
+export const transferFunds = (
+  fromAccountId: number, 
+  toAccountId: number, 
+  amount: number, 
+  notes?: string, 
+  date?: string
+) => {
+  const db = getDB();
+  const transferDate = date || new Date().toISOString().split('T')[0];
+  const title = notes && notes.trim() ? `Transfer: ${notes.trim()}` : 'Account Transfer';
+  
+  // Deduct from source
+  db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, fromAccountId]);
+  // Add to destination
+  db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, toAccountId]);
+  
+  // Log transfer transaction for auditability
+  db.runSync(
+    'INSERT INTO transactions (title, amount, type, date, category, account_id, to_account_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [title, -amount, 'expense', transferDate, 'Transfer', fromAccountId, toAccountId]
+  );
+};
+
+export const exportTransactionsCSV = (): string => {
+  const db = getDB();
+  const txs = db.getAllSync<any>(`
+    SELECT t.id, t.date, t.title, t.type, t.category, t.amount, a.name as account_name, t.due_date
+    FROM transactions t
+    LEFT JOIN accounts a ON t.account_id = a.id
+    ORDER BY t.date DESC
+  `);
+  
+  const headers = ['ID', 'Date', 'Title', 'Type', 'Category', 'Account', 'Amount', 'Due Date'];
+  const rows = (txs || []).map((t: any) => [
+    t.id,
+    `"${t.date || ''}"`,
+    `"${(t.title || '').replace(/"/g, '""')}"`,
+    t.type || '',
+    `"${(t.category || '').replace(/"/g, '""')}"`,
+    `"${(t.account_name || 'Cash').replace(/"/g, '""')}"`,
+    t.amount || 0,
+    `"${t.due_date || ''}"`
+  ]);
+  
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 };
 
 // --- USER PROFILE API ---
@@ -341,36 +469,135 @@ export type UserProfile = {
   name: string;
   email: string;
   biometrics_enabled: number;
+  accent_color: string;
+  currency: string;
+  hide_balance_default: number;
 };
 
 export const getUserProfile = (): UserProfile => {
   const db = getDB();
   try {
-    const row = db.getFirstSync<{name: string, email: string, biometrics_enabled: number}>('SELECT name, email, biometrics_enabled FROM user_profile WHERE id = 1');
-    return row || { name: 'John Doe', email: 'john.doe@example.com', biometrics_enabled: 0 };
+    const row = db.getFirstSync<{
+      name: string; 
+      email: string; 
+      biometrics_enabled: number;
+      accent_color?: string;
+      currency?: string;
+      hide_balance_default?: number;
+    }>('SELECT name, email, biometrics_enabled, accent_color, currency, hide_balance_default FROM user_profile WHERE id = 1');
+    return {
+      name: row?.name || 'John Doe',
+      email: row?.email || 'john.doe@example.com',
+      biometrics_enabled: row?.biometrics_enabled ?? 0,
+      accent_color: row?.accent_color || 'emerald',
+      currency: row?.currency || 'PHP',
+      hide_balance_default: row?.hide_balance_default ?? 0
+    };
   } catch (e) {
-    // Graceful recovery during hot reloads when the table wasn't created yet
-    return { name: 'John Doe', email: 'john.doe@example.com', biometrics_enabled: 0 };
+    return { 
+      name: 'John Doe', 
+      email: 'john.doe@example.com', 
+      biometrics_enabled: 0, 
+      accent_color: 'emerald', 
+      currency: 'PHP', 
+      hide_balance_default: 0 
+    };
   }
 };
 
-export const updateUserProfile = (name: string, email: string) => {
+export const updateUserProfile = (
+  name?: string, 
+  email?: string, 
+  currency?: string, 
+  hide_balance_default?: number, 
+  accent_color?: string
+) => {
   const db = getDB();
+  const current = getUserProfile();
+  const newName = name !== undefined ? name : current.name;
+  const newEmail = email !== undefined ? email : current.email;
+  const newCurrency = currency !== undefined ? currency : current.currency;
+  const newHide = hide_balance_default !== undefined ? hide_balance_default : current.hide_balance_default;
+  const newAccent = accent_color !== undefined ? accent_color : current.accent_color;
+
   db.runSync(
-    'INSERT INTO user_profile (id, name, email, biometrics_enabled) VALUES (1, ?, ?, 0) ON CONFLICT(id) DO UPDATE SET name=excluded.name, email=excluded.email', 
-    [name || 'User', email || '']
+    `INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default)
+     VALUES (1, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET 
+       name=excluded.name, 
+       email=excluded.email, 
+       accent_color=excluded.accent_color, 
+       currency=excluded.currency, 
+       hide_balance_default=excluded.hide_balance_default`, 
+    [newName, newEmail, current.biometrics_enabled, newAccent, newCurrency, newHide]
   );
 };
 
 export const updateBiometricsEnabled = (enabled: boolean) => {
   const db = getDB();
+  const current = getUserProfile();
   db.runSync(
-    'INSERT INTO user_profile (id, name, email, biometrics_enabled) VALUES (1, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET biometrics_enabled=excluded.biometrics_enabled', 
-    ['John Doe', 'john.doe@example.com', enabled ? 1 : 0]
+    'INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default) VALUES (1, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET biometrics_enabled=excluded.biometrics_enabled', 
+    [current.name, current.email, enabled ? 1 : 0, current.accent_color, current.currency, current.hide_balance_default]
   );
 };
 
+export const getAccentColorFromDB = (): string => {
+  try {
+    const p = getUserProfile();
+    return p.accent_color || 'emerald';
+  } catch (e) {
+    return 'emerald';
+  }
+};
+
+export const setAccentColorInDB = (key: string): void => {
+  try {
+    const db = getDB();
+    db.runSync('UPDATE user_profile SET accent_color = ? WHERE id = 1', [key]);
+  } catch (e) {
+    console.warn('Failed to update accent color in db:', e);
+  }
+};
+
 // Categories CRUD API
+export const seedDefaultCategories = (targetDb?: SQLite.SQLiteDatabase): number => {
+  if (Platform.OS === 'web' || isWebFallback) {
+    let added = 0;
+    for (const cat of DEFAULT_BUILTIN_CATEGORIES) {
+      const exists = mockDb.categories.find(
+        c => c.name.toLowerCase() === cat.name.toLowerCase() && c.type === cat.type
+      );
+      if (!exists) {
+        mockDb.categories.push({ id: Date.now() + Math.floor(Math.random() * 1000), ...cat });
+        added++;
+      }
+    }
+    return added;
+  }
+
+  const activeDb = targetDb || getDB();
+  let addedCount = 0;
+  for (const cat of DEFAULT_BUILTIN_CATEGORIES) {
+    try {
+      const exists = activeDb.getFirstSync<{ id: number }>(
+        'SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND type = ?',
+        [cat.name, cat.type]
+      );
+      if (!exists) {
+        activeDb.runSync(
+          'INSERT INTO categories (name, icon, color, type) VALUES (?, ?, ?, ?)',
+          [cat.name, cat.icon, cat.color, cat.type]
+        );
+        addedCount++;
+      }
+    } catch (e) {
+      console.warn('Failed to insert default category:', cat.name, e);
+    }
+  }
+  return addedCount;
+};
+
 export const getCategories = (): Category[] => {
   const db = getDB();
   return db.getAllSync('SELECT * FROM categories ORDER BY name ASC');
@@ -559,7 +786,7 @@ export const exportBackupJSON = (): string => {
   };
 
   const backup = {
-    version: 1,
+    version: 2,
     timestamp: new Date().toISOString(),
     data: {
       accounts: safeGet('SELECT * FROM accounts'),
@@ -567,10 +794,12 @@ export const exportBackupJSON = (): string => {
       transactions: safeGet('SELECT * FROM transactions'),
       splitTransactions: safeGet('SELECT * FROM split_transactions'),
       budgets: safeGet('SELECT * FROM budgets'),
-      goals: safeGet('SELECT * FROM goals')
+      goals: safeGet('SELECT * FROM goals'),
+      reminders: safeGet('SELECT * FROM reminders'),
+      userProfile: safeGet('SELECT * FROM user_profile')
     }
   };
-  return JSON.stringify(backup);
+  return JSON.stringify(backup, null, 2);
 };
 
 export const importBackupJSON = (jsonString: string): void => {
@@ -578,7 +807,16 @@ export const importBackupJSON = (jsonString: string): void => {
     const backup = JSON.parse(jsonString);
     if (!backup.data) throw new Error("Invalid backup format");
     
-    const { accounts, categories, transactions, splitTransactions, budgets, goals } = backup.data;
+    const { 
+      accounts, 
+      categories, 
+      transactions, 
+      splitTransactions, 
+      budgets, 
+      goals,
+      reminders,
+      userProfile 
+    } = backup.data;
     
     const dbInstance = getDB();
     dbInstance.execSync('PRAGMA foreign_keys = OFF;');
@@ -590,13 +828,14 @@ export const importBackupJSON = (jsonString: string): void => {
     dbInstance.runSync('DELETE FROM accounts');
     dbInstance.runSync('DELETE FROM budgets');
     dbInstance.runSync('DELETE FROM goals');
+    dbInstance.runSync('DELETE FROM reminders');
     
     // Restore Accounts
     if (accounts && Array.isArray(accounts)) {
       accounts.forEach((acc: any) => {
         dbInstance.runSync(
           'INSERT INTO accounts (id, name, type, balance, currency) VALUES (?, ?, ?, ?, ?)',
-          [acc.id, acc.name, acc.type, acc.balance, acc.currency]
+          [acc.id, acc.name, acc.type, acc.balance, acc.currency || 'PHP']
         );
       });
     }
@@ -653,6 +892,33 @@ export const importBackupJSON = (jsonString: string): void => {
           [g.id, g.title, g.target_amount, g.current_amount, g.color, g.icon, g.deadline]
         );
       });
+    }
+
+    // Restore Reminders
+    if (reminders && Array.isArray(reminders)) {
+      reminders.forEach((r: any) => {
+        dbInstance.runSync(
+          'INSERT INTO reminders (id, title, due_date, is_completed) VALUES (?, ?, ?, ?)',
+          [r.id, r.title, r.due_date || null, r.is_completed || 0]
+        );
+      });
+    }
+
+    // Restore User Profile
+    if (userProfile && Array.isArray(userProfile) && userProfile.length > 0) {
+      const p = userProfile[0];
+      dbInstance.runSync(
+        `INSERT OR REPLACE INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default) 
+         VALUES (1, ?, ?, ?, ?, ?, ?)`,
+        [
+          p.name || 'User',
+          p.email || '',
+          p.biometrics_enabled || 0,
+          p.accent_color || 'emerald',
+          p.currency || 'PHP',
+          p.hide_balance_default || 0
+        ]
+      );
     }
 
     // Re-enable foreign keys

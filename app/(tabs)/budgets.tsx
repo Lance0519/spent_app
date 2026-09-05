@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView as RNScrollView, TextInput, Alert, Platform } from 'react-native';
 import { ScrollView as GestureScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import tw, { useAppColorScheme } from 'twrnc';
 import { Target, Trophy, Plus, Tag, Edit2, Trash2, Check, AlertCircle, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,10 +23,13 @@ import {
 } from '../../db/database';
 
 import { IconMap } from '../../utils/Icons';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function BudgetsScreen() {
+  const router = useRouter();
   const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
+  const { accentColor, textPrimary, textSecondary, textMuted, textOnAccent } = useTheme();
   const [activeTab, setActiveTab] = useState<'budgets' | 'goals'>('budgets');
   
   // Data State
@@ -168,30 +171,40 @@ export default function BudgetsScreen() {
   return (
     <SafeAreaView style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218]`}>
       <View style={tw`px-6 py-4 bg-[#FEF7FF] dark:bg-[#141218] border-b border-slate-100 dark:border-slate-800 flex-row justify-between items-center`}>
-        <Text style={tw`text-2xl font-bold text-slate-800 dark:text-white`}>Planning</Text>
+        <Text style={[tw`text-2xl font-bold`, { color: textPrimary }]}>Planning</Text>
         <TouchableOpacity 
           onPress={() => activeTab === 'budgets' ? openAddBudget() : goalSheetRef.current?.expand()} 
-          style={tw`w-10 h-10 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center`}
+          style={[tw`w-10 h-10 rounded-full items-center justify-center`, { backgroundColor: `${accentColor}15` }]}
         >
-          <Plus color="#3b82f6" size={24} />
+          <Plus color={accentColor} size={24} />
         </TouchableOpacity>
       </View>
 
       <View style={tw`flex-row px-6 py-4 gap-4`}>
         <TouchableOpacity 
           onPress={() => setActiveTab('budgets')}
-          style={tw`flex-1 py-3 rounded-2xl items-center flex-row justify-center border-2 ${activeTab === 'budgets' ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30' : 'bg-[#F4EFF4] dark:bg-[#49454F] border-slate-100 dark:border-slate-800'}`}
+          style={[
+            tw`flex-1 py-3 rounded-2xl items-center flex-row justify-center border-2`,
+            activeTab === 'budgets' 
+              ? [{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}40` }] 
+              : tw`bg-[#F4EFF4] dark:bg-[#49454F] border-slate-100 dark:border-slate-800`
+          ]}
         >
-          <Target size={20} color={activeTab === 'budgets' ? '#3b82f6' : '#94a3b8'} style={tw`mr-2`} />
-          <Text style={tw`font-bold ${activeTab === 'budgets' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>Budgets</Text>
+          <Target size={20} color={activeTab === 'budgets' ? accentColor : textMuted} style={tw`mr-2`} />
+          <Text style={[tw`font-bold`, { color: activeTab === 'budgets' ? accentColor : textSecondary }]}>Budgets</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           onPress={() => setActiveTab('goals')}
-          style={tw`flex-1 py-3 rounded-2xl items-center flex-row justify-center border-2 ${activeTab === 'goals' ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30' : 'bg-[#F4EFF4] dark:bg-[#49454F] border-slate-100 dark:border-slate-800'}`}
+          style={[
+            tw`flex-1 py-3 rounded-2xl items-center flex-row justify-center border-2`,
+            activeTab === 'goals' 
+              ? [{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}40` }] 
+              : tw`bg-[#F4EFF4] dark:bg-[#49454F] border-slate-100 dark:border-slate-800`
+          ]}
         >
-          <Trophy size={20} color={activeTab === 'goals' ? '#3b82f6' : '#94a3b8'} style={tw`mr-2`} />
-          <Text style={tw`font-bold ${activeTab === 'goals' ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>Goals</Text>
+          <Trophy size={20} color={activeTab === 'goals' ? accentColor : textMuted} style={tw`mr-2`} />
+          <Text style={[tw`font-bold`, { color: activeTab === 'goals' ? accentColor : textSecondary }]}>Goals</Text>
         </TouchableOpacity>
       </View>
 
@@ -200,11 +213,11 @@ export default function BudgetsScreen() {
           <View style={tw`pb-24`}>
             {budgets.length === 0 ? (
               <View style={tw`items-center justify-center mt-20`}>
-                <Target size={64} color="#e2e8f0" style={tw`dark:opacity-20`} />
-                <Text style={tw`text-lg font-bold text-slate-400 dark:text-slate-500 mt-4`}>No budgets set</Text>
-                <TouchableOpacity onPress={openAddBudget} style={tw`mt-4 bg-blue-600 px-6 py-3 rounded-full flex-row items-center`}>
-                  <Plus color="#fff" size={18} style={tw`mr-2`} />
-                  <Text style={tw`text-white font-bold`}>Create Budget</Text>
+                <Target size={64} color={textMuted} style={tw`opacity-30`} />
+                <Text style={[tw`text-lg font-bold mt-4`, { color: textMuted }]}>No budgets set</Text>
+                <TouchableOpacity onPress={openAddBudget} style={[tw`mt-4 px-6 py-3 rounded-full flex-row items-center shadow-md`, { backgroundColor: accentColor }]}>
+                  <Plus color={textOnAccent} size={18} style={tw`mr-2`} />
+                  <Text style={[tw`font-bold`, { color: textOnAccent }]}>Create Budget</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -225,8 +238,8 @@ export default function BudgetsScreen() {
                           <IconComp size={18} color={catObj ? catObj.color : '#64748b'} />
                         </View>
                         <View>
-                          <Text style={tw`text-base font-bold text-slate-800 dark:text-slate-100`}>{budget.category}</Text>
-                          <Text style={tw`text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide`}>Monthly Limit</Text>
+                          <Text style={[tw`text-base font-bold`, { color: textPrimary }]}>{budget.category}</Text>
+                          <Text style={[tw`text-xs font-semibold uppercase tracking-wide`, { color: textMuted }]}>Monthly Limit</Text>
                         </View>
                       </View>
                       
@@ -235,7 +248,7 @@ export default function BudgetsScreen() {
                           onPress={() => openEditBudget(budget)} 
                           style={tw`p-2 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full`}
                         >
-                          <Edit2 size={16} color="#94a3b8" />
+                          <Edit2 size={16} color={textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity 
                           onPress={() => handleDeleteBudget(budget.id)} 
@@ -248,14 +261,14 @@ export default function BudgetsScreen() {
                     
                     <View style={tw`flex-row justify-between items-end mb-2`}>
                       <View>
-                        <Text style={tw`text-xs font-semibold text-slate-400 dark:text-slate-500 mb-0.5`}>Spent</Text>
-                        <Text style={tw`text-2xl font-black ${isOver ? 'text-rose-500' : 'text-slate-800 dark:text-white'}`}>
+                        <Text style={[tw`text-xs font-semibold mb-0.5`, { color: textSecondary }]}>Spent</Text>
+                        <Text style={[tw`text-2xl font-black`, isOver ? tw`text-rose-500` : { color: textPrimary }]}>
                           ₱{spent.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </Text>
                       </View>
                       <View style={tw`items-end`}>
-                        <Text style={tw`text-xs font-semibold text-slate-400 dark:text-slate-500 mb-0.5`}>Limit</Text>
-                        <Text style={tw`text-sm font-bold text-slate-500 dark:text-slate-300`}>
+                        <Text style={[tw`text-xs font-semibold mb-0.5`, { color: textSecondary }]}>Limit</Text>
+                        <Text style={[tw`text-sm font-bold`, { color: textSecondary }]}>
                           ₱{budget.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                         </Text>
                       </View>
@@ -267,7 +280,7 @@ export default function BudgetsScreen() {
                           tw`h-full rounded-full`, 
                           { 
                             width: `${progress}%`,
-                            backgroundColor: isOver ? '#ef4444' : isWarning ? '#f59e0b' : (catObj?.color || '#3b82f6')
+                            backgroundColor: isOver ? '#ef4444' : isWarning ? '#f59e0b' : (catObj?.color || accentColor)
                           }
                         ]} 
                       />
@@ -275,19 +288,25 @@ export default function BudgetsScreen() {
 
                     <View style={tw`flex-row justify-between items-center`}>
                       {isOver ? (
-                        <Text style={tw`text-xs font-bold text-rose-500 flex-row items-center`}>
-                          ⚠️ Exceeded limit by ₱{Math.abs(remaining).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                        </Text>
+                        <View style={tw`flex-row items-center`}>
+                          <AlertCircle size={13} color="#ef4444" style={tw`mr-1`} />
+                          <Text style={tw`text-xs font-bold text-rose-500`}>
+                            Exceeded limit by ₱{Math.abs(remaining).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                          </Text>
+                        </View>
                       ) : isWarning ? (
-                        <Text style={tw`text-xs font-bold text-amber-500`}>
-                          ⚡ ₱{remaining.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} remaining (Near limit)
-                        </Text>
+                        <View style={tw`flex-row items-center`}>
+                          <AlertCircle size={13} color="#f59e0b" style={tw`mr-1`} />
+                          <Text style={tw`text-xs font-bold text-amber-500`}>
+                            ₱{remaining.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} remaining (Near limit)
+                          </Text>
+                        </View>
                       ) : (
                         <Text style={tw`text-xs font-bold text-emerald-600 dark:text-emerald-400`}>
                           ₱{remaining.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} remaining
                         </Text>
                       )}
-                      <Text style={tw`text-xs font-semibold text-slate-400`}>{progress.toFixed(0)}%</Text>
+                      <Text style={[tw`text-xs font-semibold`, { color: textMuted }]}>{progress.toFixed(0)}%</Text>
                     </View>
                   </View>
                 );
@@ -300,11 +319,11 @@ export default function BudgetsScreen() {
           <View style={tw`pb-24`}>
             {goals.length === 0 ? (
               <View style={tw`items-center justify-center mt-20`}>
-                <Trophy size={64} color="#e2e8f0" style={tw`dark:opacity-20`} />
-                <Text style={tw`text-lg font-bold text-slate-400 dark:text-slate-500 mt-4`}>No goals set</Text>
-                <TouchableOpacity onPress={() => goalSheetRef.current?.expand()} style={tw`mt-4 bg-blue-600 px-6 py-3 rounded-full flex-row items-center`}>
-                  <Plus color="#fff" size={18} style={tw`mr-2`} />
-                  <Text style={tw`text-white font-bold`}>Create Goal</Text>
+                <Trophy size={64} color={textMuted} style={tw`opacity-30`} />
+                <Text style={[tw`text-lg font-bold mt-4`, { color: textMuted }]}>No goals set</Text>
+                <TouchableOpacity onPress={() => goalSheetRef.current?.expand()} style={[tw`mt-4 px-6 py-3 rounded-full flex-row items-center shadow-md`, { backgroundColor: accentColor }]}>
+                  <Plus color={textOnAccent} size={18} style={tw`mr-2`} />
+                  <Text style={[tw`font-bold`, { color: textOnAccent }]}>Create Goal</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -313,7 +332,7 @@ export default function BudgetsScreen() {
                 return (
                   <View key={goal.id} style={tw`bg-[#F4EFF4] dark:bg-[#49454F] p-5 rounded-3xl shadow-sm shadow-slate-200 dark:shadow-none mb-4 border border-slate-50 dark:border-slate-800`}>
                     <View style={tw`flex-row justify-between items-center mb-4`}>
-                      <Text style={tw`text-lg font-bold text-slate-800 dark:text-slate-100`}>{goal.title}</Text>
+                      <Text style={[tw`text-lg font-bold`, { color: textPrimary }]}>{goal.title}</Text>
                       <View style={tw`flex-row items-center gap-2`}>
                         <View style={tw`bg-emerald-100 dark:bg-emerald-500/10 px-3 py-1 rounded-full`}>
                           <Text style={tw`text-xs font-bold text-emerald-600 dark:text-emerald-400`}>{progress.toFixed(0)}%</Text>
@@ -324,8 +343,8 @@ export default function BudgetsScreen() {
                       </View>
                     </View>
                     <View style={tw`flex-row justify-between items-end mb-2`}>
-                      <Text style={tw`text-2xl font-black text-slate-800 dark:text-white`}>₱{goal.current_amount.toLocaleString()}</Text>
-                      <Text style={tw`text-sm font-bold text-slate-400 dark:text-slate-500 mb-1`}>/ ₱{goal.target_amount.toLocaleString()}</Text>
+                      <Text style={[tw`text-2xl font-black`, { color: textPrimary }]}>₱{goal.current_amount.toLocaleString()}</Text>
+                      <Text style={[tw`text-sm font-bold mb-1`, { color: textSecondary }]}>/ ₱{goal.target_amount.toLocaleString()}</Text>
                     </View>
                     <View style={tw`h-3 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full overflow-hidden`}>
                       <View style={[tw`h-full rounded-full bg-emerald-500`, { width: `${progress}%` }]} />
@@ -351,11 +370,11 @@ export default function BudgetsScreen() {
         handleIndicatorStyle={{ backgroundColor: isDark ? '#334155' : '#cbd5e1' }}
       >
         <BottomSheetView style={tw`flex-1 px-6 pt-2 pb-8`}>
-          <Text style={tw`text-xl font-bold text-slate-800 dark:text-white mb-6`}>
+          <Text style={[tw`text-xl font-bold mb-6`, { color: textPrimary }]}>
             {editingBudgetId ? 'Edit Category Budget' : 'Set Category Budget'}
           </Text>
           
-          <Text style={tw`text-sm font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider`}>Category</Text>
+          <Text style={[tw`text-sm font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Category</Text>
           <GestureScrollView 
             horizontal 
             nestedScrollEnabled={true}
@@ -377,17 +396,30 @@ export default function BudgetsScreen() {
                   ]}
                 >
                   {isSelected && <Check size={14} color="#fff" style={tw`mr-1.5`} />}
-                  <Text style={[tw`font-bold`, { color: isSelected ? '#fff' : (isDark ? '#cbd5e1' : '#64748b') }]}>{cat.name}</Text>
+                  <Text style={[tw`font-bold`, { color: isSelected ? '#fff' : textSecondary }]}>{cat.name}</Text>
                 </TouchableOpacity>
               );
             })}
+            <TouchableOpacity 
+              onPress={() => {
+                budgetSheetRef.current?.close();
+                router.push('/categories');
+              }} 
+              style={[
+                tw`flex-row items-center border border-dashed px-3.5 py-2 rounded-full h-10`,
+                { borderColor: accentColor, backgroundColor: `${accentColor}12` }
+              ]}
+            >
+              <Plus size={14} color={accentColor} style={tw`mr-1.5`} />
+              <Text style={[tw`font-bold`, { color: accentColor }]}>Add</Text>
+            </TouchableOpacity>
           </GestureScrollView>
 
-          <Text style={tw`text-sm font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider`}>Monthly Limit (₱)</Text>
+          <Text style={[tw`text-sm font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Monthly Limit (₱)</Text>
           <TextInput
-            style={tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-xl font-black text-slate-800 dark:text-white mb-6`}
+            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-xl font-black mb-6`, { color: textPrimary }]}
             placeholder="0.00"
-            placeholderTextColor="#64748b"
+            placeholderTextColor={textMuted}
             keyboardType="numeric"
             value={budgetAmount}
             onChangeText={setBudgetAmount}
@@ -402,8 +434,8 @@ export default function BudgetsScreen() {
                 <Text style={tw`text-rose-500 font-bold text-base`}>Delete Budget</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={handleSaveBudget} style={tw`w-full bg-blue-600 py-4 rounded-2xl items-center`}>
-              <Text style={tw`text-white font-bold text-lg`}>
+            <TouchableOpacity onPress={handleSaveBudget} style={[tw`w-full py-4 rounded-2xl items-center shadow-md`, { backgroundColor: accentColor }]}>
+              <Text style={[tw`font-bold text-lg`, { color: textOnAccent }]}>
                 {editingBudgetId ? 'Update Budget' : 'Save Budget'}
               </Text>
             </TouchableOpacity>
@@ -424,29 +456,29 @@ export default function BudgetsScreen() {
         handleIndicatorStyle={{ backgroundColor: isDark ? '#334155' : '#cbd5e1' }}
       >
         <BottomSheetView style={tw`flex-1 px-6 pt-2 pb-8`}>
-          <Text style={tw`text-xl font-bold text-slate-800 dark:text-white mb-6`}>Create New Goal</Text>
+          <Text style={[tw`text-xl font-bold mb-6`, { color: textPrimary }]}>Create New Goal</Text>
           
-          <Text style={tw`text-sm font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider`}>Goal Name</Text>
+          <Text style={[tw`text-sm font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Goal Name</Text>
           <TextInput
-            style={tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-base font-semibold text-slate-800 dark:text-white mb-6`}
+            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-base font-semibold mb-6`, { color: textPrimary }]}
             placeholder="e.g. New Laptop, Emergency Fund"
-            placeholderTextColor="#64748b"
+            placeholderTextColor={textMuted}
             value={goalTitle}
             onChangeText={setGoalTitle}
           />
 
-          <Text style={tw`text-sm font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider`}>Target Amount (₱)</Text>
+          <Text style={[tw`text-sm font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Target Amount (₱)</Text>
           <TextInput
-            style={tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-xl font-black text-slate-800 dark:text-white mb-6`}
+            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-xl font-black mb-6`, { color: textPrimary }]}
             placeholder="0.00"
-            placeholderTextColor="#64748b"
+            placeholderTextColor={textMuted}
             keyboardType="numeric"
             value={goalTarget}
             onChangeText={setGoalTarget}
           />
           
-          <TouchableOpacity onPress={handleSaveGoal} style={tw`w-full bg-blue-600 py-4 rounded-2xl items-center mt-auto`}>
-            <Text style={tw`text-white font-bold text-lg`}>Start Saving</Text>
+          <TouchableOpacity onPress={handleSaveGoal} style={[tw`w-full py-4 rounded-2xl items-center mt-auto shadow-md`, { backgroundColor: accentColor }]}>
+            <Text style={[tw`font-bold text-lg`, { color: textOnAccent }]}>Start Saving</Text>
           </TouchableOpacity>
         </BottomSheetView>
       </BottomSheet>

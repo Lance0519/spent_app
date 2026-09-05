@@ -20,6 +20,7 @@ import {
   Account 
 } from '../../db/database';
 import { IconMap } from '../../utils/Icons';
+import { useTheme } from '../../context/ThemeContext';
 
 type Transaction = {
   id: number;
@@ -35,6 +36,7 @@ type Transaction = {
 export default function TransactionsScreen() {
   const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
+  const { accentColor, textPrimary, textSecondary, textMuted, textOnAccent } = useTheme();
   const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'loan'>('all');
   const [allData, setAllData] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -243,9 +245,9 @@ export default function TransactionsScreen() {
             )}
           </View>
           <View style={tw`flex-1`}>
-            <Text style={tw`text-base font-bold text-slate-800 dark:text-slate-100`} numberOfLines={1}>{item.title}</Text>
+            <Text style={[tw`text-base font-bold`, { color: textPrimary }]} numberOfLines={1}>{item.title}</Text>
             <View style={tw`flex-row items-center gap-1.5 mt-0.5`}>
-              <Text style={tw`text-xs font-medium text-slate-500 dark:text-slate-400`}>
+              <Text style={[tw`text-xs font-medium`, { color: textMuted }]}>
                 {new Date(item.date).toLocaleDateString()} • {item.category}
               </Text>
               {isLoan && item.due_date && (
@@ -261,7 +263,7 @@ export default function TransactionsScreen() {
         </View>
         <Text style={[
           tw`text-lg font-black tracking-tight`,
-          isIncome ? tw`text-emerald-500 dark:text-emerald-400` : tw`text-slate-800 dark:text-slate-100`
+          isIncome ? tw`text-emerald-500 dark:text-emerald-400` : { color: textPrimary }
         ]}>
           {isIncome ? '+' : '-'}₱{Math.abs(item.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
         </Text>
@@ -272,15 +274,20 @@ export default function TransactionsScreen() {
   return (
     <SafeAreaView style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218]`}>
       <View style={tw`px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800`}>
-        <Text style={tw`text-3xl font-black text-slate-900 dark:text-white mb-6`}>Transactions</Text>
+        <Text style={[tw`text-3xl font-black mb-6`, { color: textPrimary }]}>Transactions</Text>
         <View style={tw`flex-row space-x-2 gap-2`}>
           {['all', 'income', 'expense', 'loan'].map((f) => (
             <TouchableOpacity
               key={f}
               onPress={() => setFilter(f as any)}
-              style={tw`px-4 py-2 rounded-full ${filter === f ? 'bg-blue-600 shadow-md shadow-blue-500/30 dark:shadow-none' : 'bg-[#F3EDF7] dark:bg-[#211F26]'}`}
+              style={[
+                tw`px-4 py-2 rounded-full`,
+                filter === f 
+                  ? [{ backgroundColor: accentColor }] 
+                  : tw`bg-[#F3EDF7] dark:bg-[#211F26]`
+              ]}
             >
-              <Text style={tw`font-bold capitalize text-xs tracking-wide ${filter === f ? 'text-white' : 'text-slate-500 dark:text-slate-300'}`}>
+              <Text style={[tw`font-bold capitalize text-xs tracking-wide`, { color: filter === f ? textOnAccent : textSecondary }]}>
                 {f}
               </Text>
             </TouchableOpacity>
@@ -363,8 +370,8 @@ export default function TransactionsScreen() {
               </Text>
             )}
             <View style={tw`flex-row items-center justify-center`}>
-              <Text style={tw`text-3xl font-black text-slate-400 dark:text-slate-500 mr-1.5`}>₱</Text>
-              <Text style={tw`text-5xl font-black text-slate-800 dark:text-white tracking-tight`} numberOfLines={1}>
+              <Text style={[tw`text-3xl font-black mr-1.5`, { color: textMuted }]}>₱</Text>
+              <Text style={[tw`text-5xl font-black tracking-tight`, { color: textPrimary }]} numberOfLines={1}>
                 {amount}
               </Text>
             </View>
@@ -377,7 +384,7 @@ export default function TransactionsScreen() {
               style={tw`flex-row items-center bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-full`}
             >
               <Calendar size={14} color="#64748b" style={tw`mr-1.5`} />
-              <Text style={tw`text-xs font-bold text-slate-700 dark:text-slate-300`}>
+              <Text style={[tw`text-xs font-bold`, { color: textPrimary }]}>
                 {formatDateLabel(selectedDate)}
               </Text>
             </TouchableOpacity>
@@ -397,7 +404,7 @@ export default function TransactionsScreen() {
 
           {/* Payment Account Selector */}
           <View style={tw`mb-2`}>
-            <Text style={tw`text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider`}>Account / Payment Method</Text>
+            <Text style={[tw`text-[11px] font-bold mb-1 uppercase tracking-wider`, { color: textMuted }]}>Account / Payment Method</Text>
             <GestureScrollView 
               horizontal 
               nestedScrollEnabled={true} 
@@ -413,15 +420,15 @@ export default function TransactionsScreen() {
                     style={[
                       tw`flex-row items-center border px-3 py-1.5 rounded-xl`,
                       isSelected 
-                        ? tw`bg-blue-600 border-blue-600` 
+                        ? [{ backgroundColor: accentColor, borderColor: accentColor }] 
                         : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-200 dark:border-slate-800`
                     ]}
                   >
-                    {acc.type === 'cash' ? <Wallet size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
-                     acc.type === 'ewallet' ? <Smartphone size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
-                     acc.type === 'credit' ? <CreditCard size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
-                     <Building2 size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} />}
-                    <Text style={[tw`font-bold text-xs`, isSelected ? tw`text-white` : tw`text-slate-600 dark:text-slate-300`]}>
+                    {acc.type === 'cash' ? <Wallet size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
+                     acc.type === 'ewallet' ? <Smartphone size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
+                     acc.type === 'credit' ? <CreditCard size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
+                     <Building2 size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} />}
+                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? textOnAccent : textSecondary }]}>
                       {acc.name}
                     </Text>
                   </TouchableOpacity>
@@ -432,7 +439,7 @@ export default function TransactionsScreen() {
 
           {/* Categories Selector with Smooth Horizontal Scrolling Fix */}
           <View style={tw`mb-3`}>
-            <Text style={tw`text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider`}>Category</Text>
+            <Text style={[tw`text-[11px] font-bold mb-1 uppercase tracking-wider`, { color: textMuted }]}>Category</Text>
             <GestureScrollView 
               horizontal 
               nestedScrollEnabled={true} 
@@ -458,7 +465,7 @@ export default function TransactionsScreen() {
                     ) : (
                       <IconComp size={14} color={cat.color} style={tw`mr-1.5`} />
                     )}
-                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? '#fff' : (isDark ? '#cbd5e1' : '#64748b') }]}>
+                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? '#fff' : textSecondary }]}>
                       {cat.name}
                     </Text>
                   </TouchableOpacity>
@@ -469,7 +476,7 @@ export default function TransactionsScreen() {
 
           {/* Note Input */}
           <TextInput 
-            style={tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800 dark:text-white mb-2`} 
+            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-4 py-2.5 rounded-xl text-sm font-semibold mb-2`, { color: textPrimary }]} 
             placeholderTextColor="#64748b" 
             placeholder="Note / Description" 
             value={title} 
@@ -495,14 +502,14 @@ export default function TransactionsScreen() {
                         style={[
                           tw`flex-1 h-13 rounded-2xl items-center justify-center border`,
                           isOp 
-                            ? tw`bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30` 
+                            ? [{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}35` }] 
                             : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-100 dark:border-slate-800`
                         ]}
                       >
                         {key === 'del' ? (
                           <Delete color="#94a3b8" size={20} />
                         ) : (
-                          <Text style={[tw`text-xl font-bold`, isOp ? tw`text-blue-600 dark:text-blue-400` : tw`text-slate-700 dark:text-slate-200`]}>
+                          <Text style={[tw`text-xl font-bold`, isOp ? { color: accentColor } : { color: textPrimary }]}>
                             {key}
                           </Text>
                         )}
@@ -521,9 +528,9 @@ export default function TransactionsScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity 
                   onPress={handleUpdate} 
-                  style={tw`flex-2 bg-blue-600 py-3.5 rounded-xl items-center`}
+                  style={[tw`flex-2 py-3.5 rounded-xl items-center shadow-md`, { backgroundColor: accentColor }]}
                 >
-                  <Text style={tw`text-white font-bold text-base`}>Save Changes</Text>
+                  <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Save Changes</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -531,9 +538,9 @@ export default function TransactionsScreen() {
             <View style={tw`mt-auto pt-2`}>
               <TouchableOpacity 
                 onPress={() => Keyboard.dismiss()} 
-                style={tw`w-full bg-blue-600 py-3.5 rounded-xl items-center`}
+                style={[tw`w-full py-3.5 rounded-xl items-center shadow-md`, { backgroundColor: accentColor }]}
               >
-                <Text style={tw`text-white font-bold text-base`}>Done Typing</Text>
+                <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Done Typing</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -545,14 +552,14 @@ export default function TransactionsScreen() {
       <Modal visible={showDatePicker} transparent animationType="fade">
         <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
           <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
-            <Text style={tw`text-lg font-bold text-slate-800 dark:text-white mb-4`}>Select Transaction Date</Text>
+            <Text style={[tw`text-lg font-bold mb-4`, { color: textPrimary }]}>Select Transaction Date</Text>
             
             <View style={tw`gap-2 mb-4`}>
               <TouchableOpacity 
                 onPress={() => { setSelectedDate(new Date().toISOString()); setShowDatePicker(false); }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>Today</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>Today</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -564,12 +571,12 @@ export default function TransactionsScreen() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>Yesterday</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>Yesterday</Text>
               </TouchableOpacity>
             </View>
 
             <TextInput 
-              style={tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold text-slate-800 dark:text-white mb-4`}
+              style={[tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold mb-4`, { color: textPrimary }]}
               placeholder="Or enter YYYY-MM-DD"
               placeholderTextColor="#64748b"
               value={customDateInput}
@@ -578,7 +585,7 @@ export default function TransactionsScreen() {
 
             <View style={tw`flex-row gap-2`}>
               <TouchableOpacity onPress={() => setShowDatePicker(false)} style={tw`flex-1 p-3 rounded-xl items-center`}>
-                <Text style={tw`font-bold text-slate-500`}>Cancel</Text>
+                <Text style={[tw`font-bold`, { color: textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 onPress={() => {
@@ -591,9 +598,9 @@ export default function TransactionsScreen() {
                   setShowDatePicker(false);
                   setCustomDateInput('');
                 }} 
-                style={tw`flex-1 bg-blue-600 p-3 rounded-xl items-center`}
+                style={[tw`flex-1 p-3 rounded-xl items-center shadow-sm`, { backgroundColor: accentColor }]}
               >
-                <Text style={tw`text-white font-bold`}>Apply</Text>
+                <Text style={[tw`font-bold`, { color: textOnAccent }]}>Apply</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -604,8 +611,8 @@ export default function TransactionsScreen() {
       <Modal visible={showDueDatePicker} transparent animationType="fade">
         <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
           <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
-            <Text style={tw`text-lg font-bold text-slate-800 dark:text-white mb-2`}>Loan Repayment Due Date</Text>
-            <Text style={tw`text-xs text-slate-500 dark:text-slate-400 mb-4`}>Set when this loan is scheduled to be paid.</Text>
+            <Text style={[tw`text-lg font-bold mb-2`, { color: textPrimary }]}>Loan Repayment Due Date</Text>
+            <Text style={[tw`text-xs mb-4`, { color: textMuted }]}>Set when this loan is scheduled to be paid.</Text>
             
             <View style={tw`gap-2 mb-4`}>
               <TouchableOpacity 
@@ -617,7 +624,7 @@ export default function TransactionsScreen() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 1 Week</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 1 Week</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -629,7 +636,7 @@ export default function TransactionsScreen() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 15 Days (Next Payday)</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 15 Days (Next Payday)</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -641,12 +648,12 @@ export default function TransactionsScreen() {
                 }}
                 style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
               >
-                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 30 Days (Next Month)</Text>
+                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 30 Days (Next Month)</Text>
               </TouchableOpacity>
             </View>
 
             <TextInput 
-              style={tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold text-slate-800 dark:text-white mb-4`}
+              style={[tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold mb-4`, { color: textPrimary }]}
               placeholder="Or enter YYYY-MM-DD"
               placeholderTextColor="#64748b"
               value={customDateInput}
@@ -655,7 +662,7 @@ export default function TransactionsScreen() {
 
             <View style={tw`flex-row gap-2`}>
               <TouchableOpacity onPress={() => setShowDueDatePicker(false)} style={tw`flex-1 p-3 rounded-xl items-center`}>
-                <Text style={tw`font-bold text-slate-500`}>Cancel</Text>
+                <Text style={[tw`font-bold`, { color: textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 onPress={() => {
