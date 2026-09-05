@@ -320,7 +320,7 @@ export default function AccountScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            onPress={() => Linking.openURL('mailto:justinelance0067@gmail.com?subject=Spent%20App%20Support')}
+            onPress={() => Linking.openURL('mailto:justinelance0067@gmail.com?subject=SPENT%20App%20Support')}
             style={tw`flex-row items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800/50`}
           >
             <View style={tw`flex-row items-center`}>

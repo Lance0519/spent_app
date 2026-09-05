@@ -1,17 +1,32 @@
-import React, { useRef, useMemo, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, StyleSheet, Alert, Platform } from 'react-native';
+import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Alert, Platform, Keyboard, Modal } from 'react-native';
+import { ScrollView as GestureScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { Plus, Wallet, Coffee, Train, ShoppingCart, Delete, Tag, Icon as LucideIcon, Eye, EyeOff, ArrowRightLeft, Target, PieChart, Download, List, Moon, Sun } from 'lucide-react-native';
+import { 
+  Plus, Wallet, Coffee, Train, ShoppingCart, Delete, Tag, Eye, EyeOff, 
+  Target, PieChart, Download, List, Check, Calendar, Clock, CreditCard, 
+  Smartphone, Building2, HelpCircle, ArrowDownLeft, ArrowUpRight, X
+} from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import tw, { useAppColorScheme } from 'twrnc';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Clipboard from 'expo-clipboard';
-import { getDB, getCategories, Category, exportBackupJSON, deleteTransaction, updateTransaction } from '../../db/database';
+import { 
+  getDB, 
+  getCategories, 
+  Category, 
+  exportBackupJSON, 
+  deleteTransaction, 
+  updateTransaction,
+  getAccounts,
+  Account
+} from '../../db/database';
 import { checkAndTriggerBudgetWarning } from '../../services/NotificationService';
+import { IconMap } from '../../utils/Icons';
 
 type Transaction = {
   id: number;
@@ -20,56 +35,82 @@ type Transaction = {
   date: string;
   type: string;
   category: string;
+  account_id: number;
+  due_date?: string | null;
 };
-
-import { IconMap } from '../../utils/Icons';
 
 export default function Dashboard() {
   const router = useRouter();
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['85%'], []);
-  const [colorScheme, toggleColorScheme] = useAppColorScheme(tw);
+  const snapPoints = useMemo(() => ['92%'], []);
+  const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
   
+  // Transaction Form State
   const [amount, setAmount] = useState('0');
   const [title, setTitle] = useState('');
-  const [type, setType] = useState<'expense'|'income'>('expense');
+  const [type, setType] = useState<'expense' | 'income' | 'loan'>('expense');
+  const [loanDirection, setLoanDirection] = useState<'borrowed' | 'repaid'>('borrowed');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState<number>(1);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString());
+  const [loanDueDate, setLoanDueDate] = useState<string | null>(null);
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
+  
+  // Date Picker Modals
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+  const [customDateInput, setCustomDateInput] = useState('');
+  
+  // Keyboard State (to avoid overlapping custom keypad)
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  // App Data State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [balance, setBalance] = useState(0);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [showBalance, setShowBalance] = useState(true);
   const [totalMonthlyExpenses, setTotalMonthlyExpenses] = useState(0);
   const [totalMonthlyIncome, setTotalMonthlyIncome] = useState(0);
 
-  const MONTHLY_BUDGET = 5000;
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      try {
-        fetchData();
-      } catch (error) {
-        console.log('Database init error on web?', error);
-      }
+      fetchData();
     }, [])
   );
 
   const fetchData = () => {
     try {
       const db = getDB();
-      const txs = db.getAllSync<Transaction>('SELECT * FROM transactions ORDER BY date DESC LIMIT 15');
+      const txs = (db.getAllSync('SELECT * FROM transactions ORDER BY date DESC LIMIT 20') as any) as Transaction[];
       setTransactions(txs);
       
-      const acc = db.getFirstSync<{ balance: number }>('SELECT SUM(balance) as balance FROM accounts');
+      const acc = db.getFirstSync('SELECT SUM(balance) as balance FROM accounts') as { balance: number } | null;
       setBalance(acc?.balance || 0);
       
       const cats = getCategories();
       setCategories(cats);
 
+      const accs = getAccounts();
+      setAccounts(accs);
+      if (accs.length > 0 && !selectedAccountId) {
+        setSelectedAccountId(accs[0].id);
+      }
+
       let ex = 0;
       let inc = 0;
       const now = new Date();
-      txs.forEach(t => {
+      txs.forEach((t: Transaction) => {
         const d = new Date(t.date);
         if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
           if (t.type === 'expense') ex += Math.abs(t.amount);
@@ -83,37 +124,65 @@ export default function Dashboard() {
     }
   };
 
+  // Safe arithmetic evaluator for basic keypad math (+, -)
+  const evaluateMath = (expr: string): number => {
+    try {
+      const clean = expr.replace(/[^0-9.+-]/g, '');
+      if (!clean) return 0;
+      const parts = clean.match(/([+-]?[0-9.]+)/g);
+      if (!parts) return 0;
+      const res = parts.reduce((acc, part) => acc + (parseFloat(part) || 0), 0);
+      return isNaN(res) ? 0 : Math.round(res * 100) / 100;
+    } catch {
+      return parseFloat(expr) || 0;
+    }
+  };
+
   const handleAddTransaction = () => {
-    const numAmount = parseFloat(amount.replace(/[^0-9.-]+/g,""));
-    if (isNaN(numAmount) || numAmount === 0) return;
+    const finalAmount = evaluateMath(amount);
+    if (finalAmount <= 0) {
+      Alert.alert("Invalid Amount", "Please enter an amount greater than 0.");
+      return;
+    }
 
     try {
       const db = getDB();
-      const date = new Date().toISOString();
-      const accountId = 1; // Cash account fallback
+      const catName = selectedCategory || title || (type === 'loan' ? 'Loan' : type === 'income' ? 'Salary' : 'Other');
+      const txTitle = title.trim() || catName;
+      const targetAccountId = selectedAccountId || (accounts[0]?.id || 1);
       
+      let signedAmount = finalAmount;
+      if (type === 'expense') {
+        signedAmount = -Math.abs(finalAmount);
+      } else if (type === 'income') {
+        signedAmount = Math.abs(finalAmount);
+      } else if (type === 'loan') {
+        signedAmount = loanDirection === 'borrowed' ? Math.abs(finalAmount) : -Math.abs(finalAmount);
+      }
+
+      const txDate = selectedDate || new Date().toISOString();
+      const dueDate = type === 'loan' ? loanDueDate : null;
+
       if (selectedTxId) {
-        updateTransaction(selectedTxId, title || 'Custom Entry', numAmount, type, title || 'Other', date);
+        updateTransaction(selectedTxId, txTitle, signedAmount, type, catName, txDate, targetAccountId, dueDate);
       } else {
         db.runSync(
-          `INSERT INTO transactions (title, amount, type, date, category, account_id) VALUES (?, ?, ?, ?, ?, ?)`,
-          [title || 'Custom Entry', numAmount * (type === 'expense' ? -1 : 1), type, date, title || 'Other', accountId]
+          `INSERT INTO transactions (title, amount, type, date, category, account_id, due_date) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [txTitle, signedAmount, type, txDate, catName, targetAccountId, dueDate]
         );
         
         db.runSync(
           `UPDATE accounts SET balance = balance + ? WHERE id = ?`,
-          [numAmount * (type === 'expense' ? -1 : 1), accountId]
+          [signedAmount, targetAccountId]
         );
         
         if (type === 'expense') {
-          const catName = title || 'Other';
-          const budget = db.getFirstSync<{amount: number}>('SELECT amount FROM budgets WHERE category = ?', [catName]);
+          const budget = db.getFirstSync('SELECT amount FROM budgets WHERE category = ?', [catName]) as { amount: number } | null;
           if (budget) {
             const now = new Date();
-            const allCatTxs = db.getAllSync<{amount: number, date: string}>('SELECT amount, date FROM transactions WHERE type = "expense" AND category = ?', [catName]);
-            
+            const allCatTxs = (db.getAllSync('SELECT amount, date FROM transactions WHERE type = "expense" AND category = ?', [catName]) as any) as { amount: number; date: string }[];
             let totalSpent = 0;
-            allCatTxs.forEach(tx => {
+            allCatTxs.forEach((tx: { amount: number; date: string }) => {
               const d = new Date(tx.date);
               if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
                 totalSpent += Math.abs(tx.amount);
@@ -126,48 +195,122 @@ export default function Dashboard() {
 
       fetchData();
       bottomSheetRef.current?.close();
-      setAmount('0');
-      setTitle('');
-      setSelectedTxId(null);
+      resetForm();
     } catch (e) {
       console.error(e);
+      Alert.alert("Error", "Failed to save transaction.");
     }
   };
 
   const handleDeleteTransaction = () => {
     if (selectedTxId) {
-      deleteTransaction(selectedTxId);
-      fetchData();
-      bottomSheetRef.current?.close();
-      setAmount('0');
-      setTitle('');
-      setSelectedTxId(null);
+      Alert.alert(
+        "Delete Transaction",
+        "Are you sure you want to delete this transaction?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => {
+              deleteTransaction(selectedTxId);
+              fetchData();
+              bottomSheetRef.current?.close();
+              resetForm();
+            }
+          }
+        ]
+      );
     }
+  };
+
+  const resetForm = () => {
+    setAmount('0');
+    setTitle('');
+    setSelectedCategory('');
+    setSelectedTxId(null);
+    setSelectedDate(new Date().toISOString());
+    setLoanDueDate(null);
+    setLoanDirection('borrowed');
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setType('expense');
+    const expenseCats = categories.filter(c => c.type === 'expense');
+    if (expenseCats.length > 0) setSelectedCategory(expenseCats[0].name);
+    if (accounts.length > 0) setSelectedAccountId(accounts[0].id);
+    bottomSheetRef.current?.expand();
   };
 
   const openEditModal = (tx: Transaction) => {
     setSelectedTxId(tx.id);
     setTitle(tx.title);
     setAmount(Math.abs(tx.amount).toString());
-    setType(tx.type as 'expense' | 'income');
+    const txType = (tx.type === 'loan' ? 'loan' : tx.type === 'income' ? 'income' : 'expense') as 'expense' | 'income' | 'loan';
+    setType(txType);
+    if (txType === 'loan') {
+      setLoanDirection(tx.amount >= 0 ? 'borrowed' : 'repaid');
+      setLoanDueDate(tx.due_date || null);
+    }
+    setSelectedCategory(tx.category || '');
+    setSelectedAccountId(tx.account_id || accounts[0]?.id || 1);
+    setSelectedDate(tx.date || new Date().toISOString());
     bottomSheetRef.current?.expand();
   };
 
-  const openAddModal = () => {
-    setSelectedTxId(null);
-    setAmount('0');
-    setTitle('');
-    setType('expense');
-    bottomSheetRef.current?.expand();
+  const handleTypeChange = (newType: 'expense' | 'income' | 'loan') => {
+    setType(newType);
+    const available = categories.filter(c => c.type === newType);
+    if (available.length > 0) {
+      setSelectedCategory(available[0].name);
+    } else {
+      setSelectedCategory('');
+    }
   };
 
   const handleKeyPress = (key: string) => {
     if (key === 'del') {
-      setAmount(prev => prev.length > 1 ? prev.slice(0, -1) : '0');
+      setAmount(prev => {
+        if (prev.length <= 1) return '0';
+        return prev.slice(0, -1);
+      });
+    } else if (key === 'C') {
+      setAmount('0');
+    } else if (key === '=') {
+      const res = evaluateMath(amount);
+      setAmount(res.toString());
+    } else if (key === '+' || key === '-') {
+      // If ends with an operator, replace it
+      if (amount.endsWith('+') || amount.endsWith('-')) {
+        setAmount(prev => prev.slice(0, -1) + key);
+      } else {
+        setAmount(prev => prev + key);
+      }
     } else if (key === '.') {
-      if (!amount.includes('.')) setAmount(prev => prev + '.');
+      const parts = amount.split(/[+-]/);
+      const currentNum = parts[parts.length - 1];
+      if (!currentNum.includes('.')) {
+        setAmount(prev => prev + '.');
+      }
     } else {
       setAmount(prev => prev === '0' ? key : prev + key);
+    }
+  };
+
+  const formatDateLabel = (isoString: string) => {
+    try {
+      const d = new Date(isoString);
+      const today = new Date();
+      if (d.toDateString() === today.toDateString()) return 'Today';
+      
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return 'Date';
     }
   };
 
@@ -199,6 +342,9 @@ export default function Dashboard() {
       Alert.alert('Export Failed', (e as Error).message);
     }
   };
+
+  const activeCategories = categories.filter(c => c.type === type);
+  const currentMathResult = (amount.includes('+') || amount.includes('-')) ? evaluateMath(amount) : null;
 
   return (
     <View style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218] relative`}>
@@ -255,26 +401,38 @@ export default function Dashboard() {
             data={transactions}
             renderItem={({ item }) => {
               const catObj = categories.find(c => c.name === item.category);
-              const catColor = catObj ? catObj.color : (item.type === 'income' ? '#10b981' : '#f43f5e');
+              const catColor = catObj ? catObj.color : (item.type === 'income' ? '#10b981' : item.type === 'loan' ? '#f59e0b' : '#f43f5e');
               const IconComp = catObj ? (IconMap[catObj.icon] || Tag) : Tag;
+              const isIncome = item.type === 'income' || (item.type === 'loan' && item.amount > 0);
+              const isLoan = item.type === 'loan';
+
               return (
                 <TouchableOpacity onPress={() => openEditModal(item)} style={tw`flex-row items-center justify-between py-3.5 border-b border-slate-50 dark:border-slate-800/50`}>
-                  <View style={tw`flex-row items-center`}>
-                    <View style={tw`w-10 h-10 rounded-full items-center justify-center mr-4 bg-[#F3EDF7] dark:bg-[#211F26]`}>
+                  <View style={tw`flex-row items-center flex-1 mr-2`}>
+                    <View style={tw`w-10 h-10 rounded-full items-center justify-center mr-3 bg-[#F3EDF7] dark:bg-[#211F26]`}>
                       <IconComp size={20} color={catColor} />
                     </View>
-                    <View>
-                      <Text style={tw`text-base font-bold text-slate-800 dark:text-slate-100`}>{item.title}</Text>
-                      <Text style={tw`text-xs font-semibold text-slate-400 dark:text-slate-500`}>{item.category}</Text>
+                    <View style={tw`flex-1`}>
+                      <Text style={tw`text-base font-bold text-slate-800 dark:text-slate-100`} numberOfLines={1}>{item.title}</Text>
+                      <View style={tw`flex-row items-center gap-1.5 mt-0.5`}>
+                        <Text style={tw`text-xs font-semibold text-slate-400 dark:text-slate-500`}>{item.category}</Text>
+                        {isLoan && item.due_date && (
+                          <View style={tw`bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded-full flex-row items-center`}>
+                            <Clock size={10} color="#f59e0b" style={tw`mr-1`} />
+                            <Text style={tw`text-[10px] font-bold text-amber-600 dark:text-amber-400`}>
+                              Due {formatDateLabel(item.due_date)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
-                  <Text style={tw`text-base font-black ${item.type === 'income' ? 'text-emerald-500' : 'text-slate-800 dark:text-slate-100'}`}>
-                    {item.type === 'income' ? '+' : ''}₱{Math.abs(item.amount).toFixed(2)}
+                  <Text style={tw`text-base font-black ${isIncome ? 'text-emerald-500' : 'text-slate-800 dark:text-slate-100'}`}>
+                    {isIncome ? '+' : '-'}₱{Math.abs(item.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                   </Text>
                 </TouchableOpacity>
               );
             }}
-            estimatedItemSize={60}
           />
         </View>
       </View>
@@ -288,66 +446,402 @@ export default function Dashboard() {
         </LinearGradient>
       </TouchableOpacity>
 
+      {/* Transaction Entry Bottom Sheet */}
       <BottomSheet
         ref={bottomSheetRef}
         index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose
+        activeOffsetX={[-999, 999]}
+        activeOffsetY={[-5, 5]}
         backdropComponent={(props) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />}
         backgroundStyle={{ backgroundColor: isDark ? '#141218' : '#FEF7FF', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}
         handleIndicatorStyle={{ backgroundColor: isDark ? '#334155' : '#cbd5e1' }}
       >
-        <BottomSheetView style={tw`flex-1 px-6 pt-2 pb-8`}>
-          <View style={tw`flex-row bg-[#F3EDF7] dark:bg-[#211F26] rounded-xl p-1 mb-6`}>
-            <TouchableOpacity onPress={() => setType('expense')} style={tw`flex-1 py-2 rounded-lg items-center ${type === 'expense' ? 'bg-[#ECE6F0] dark:bg-[#2B2930] shadow-sm' : ''}`}><Text style={tw`font-bold ${type === 'expense' ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'}`}>Expense</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setType('income')} style={tw`flex-1 py-2 rounded-lg items-center ${type === 'income' ? 'bg-[#ECE6F0] dark:bg-[#2B2930] shadow-sm' : ''}`}><Text style={tw`font-bold ${type === 'income' ? 'text-emerald-500' : 'text-slate-500 dark:text-slate-400'}`}>Income</Text></TouchableOpacity>
-          </View>
-          <View style={tw`flex-row justify-center items-end mb-6`}>
-            <Text style={tw`text-3xl font-bold text-slate-400 dark:text-slate-500 mb-2 mr-1`}>₱</Text>
-            <Text style={tw`text-6xl font-black text-slate-800 dark:text-white`}>{amount}</Text>
-          </View>
-          <TextInput style={tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-5 py-4 rounded-2xl text-base font-semibold text-slate-800 dark:text-white mb-4`} placeholderTextColor="#64748b" placeholder="What was this for?" value={title} onChangeText={setTitle} />
+        <BottomSheetView style={tw`flex-1 px-6 pt-2 pb-6`}>
           
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tw`mb-4 max-h-12`} contentContainerStyle={tw`gap-2`}>
-            {categories.filter(c => c.type === type).map((cat) => {
-              const IconComp = IconMap[cat.icon] || Tag;
-              const hex = cat.color.replace('#', '');
-              const r = parseInt(hex.substring(0,2), 16) || 0;
-              const g = parseInt(hex.substring(2,4), 16) || 0;
-              const b = parseInt(hex.substring(4,6), 16) || 0;
-              return (
-                <TouchableOpacity 
-                  key={cat.id} 
-                  onPress={() => setTitle(cat.name)} 
-                  style={[tw`flex-row items-center border px-4 py-2 rounded-full h-10`, { backgroundColor: `rgba(${r},${g},${b},0.1)`, borderColor: `rgba(${r},${g},${b},0.3)` }]}
-                >
-                  <IconComp size={16} color={cat.color} style={tw`mr-2`} />
-                  <Text style={[tw`font-bold`, { color: cat.color }]}>{cat.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-          <View style={tw`mt-auto gap-2`}>
-            {[['1','2','3'], ['4','5','6'], ['7','8','9'], ['.','0','del']].map((row, i) => (
-              <View key={i} style={tw`flex-row justify-between gap-2`}>
-                {row.map((key) => (
-                  <TouchableOpacity key={key} onPress={() => handleKeyPress(key)} style={tw`flex-1 bg-[#F3EDF7] dark:bg-[#211F26] h-16 rounded-2xl items-center justify-center border border-slate-100 dark:border-slate-700`}>
-                    {key === 'del' ? <Delete color="#94a3b8" size={24} /> : <Text style={tw`text-2xl font-semibold text-slate-700 dark:text-slate-200`}>{key}</Text>}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))}
-            {selectedTxId && (
-              <TouchableOpacity onPress={handleDeleteTransaction} style={tw`w-full bg-rose-50 dark:bg-rose-500/10 py-4 rounded-xl items-center mt-2 border border-rose-100 dark:border-rose-500/20`}>
-                <Text style={tw`text-rose-500 font-bold text-lg`}>Delete Transaction</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={handleAddTransaction} style={tw`w-full bg-blue-600 py-4 rounded-xl items-center mt-4`}>
-              <Text style={tw`text-white font-bold text-lg`}>{selectedTxId ? 'Save Changes' : 'Save Transaction'}</Text>
+          {/* 3-Way Segmented Control: Expense | Income | Loan */}
+          <View style={tw`flex-row bg-[#F3EDF7] dark:bg-[#211F26] rounded-2xl p-1 mb-4`}>
+            <TouchableOpacity 
+              onPress={() => handleTypeChange('expense')} 
+              style={tw`flex-1 py-2.5 rounded-xl items-center ${type === 'expense' ? 'bg-[#ECE6F0] dark:bg-[#2B2930] shadow-sm' : ''}`}
+            >
+              <Text style={tw`font-bold text-sm ${type === 'expense' ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'}`}>Expense</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => handleTypeChange('income')} 
+              style={tw`flex-1 py-2.5 rounded-xl items-center ${type === 'income' ? 'bg-[#ECE6F0] dark:bg-[#2B2930] shadow-sm' : ''}`}
+            >
+              <Text style={tw`font-bold text-sm ${type === 'income' ? 'text-emerald-500' : 'text-slate-500 dark:text-slate-400'}`}>Income</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => handleTypeChange('loan')} 
+              style={tw`flex-1 py-2.5 rounded-xl items-center ${type === 'loan' ? 'bg-[#ECE6F0] dark:bg-[#2B2930] shadow-sm' : ''}`}
+            >
+              <Text style={tw`font-bold text-sm ${type === 'loan' ? 'text-amber-500' : 'text-slate-500 dark:text-slate-400'}`}>Loan</Text>
             </TouchableOpacity>
           </View>
+
+          {/* If Loan, Direction Selector (Borrowed vs Repaid) */}
+          {type === 'loan' && (
+            <View style={tw`flex-row bg-[#F3EDF7] dark:bg-[#211F26] rounded-xl p-1 mb-3`}>
+              <TouchableOpacity 
+                onPress={() => setLoanDirection('borrowed')} 
+                style={tw`flex-1 py-1.5 rounded-lg items-center ${loanDirection === 'borrowed' ? 'bg-amber-500 shadow-sm' : ''}`}
+              >
+                <Text style={tw`font-bold text-xs ${loanDirection === 'borrowed' ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                  + Borrowed (Inflow)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => setLoanDirection('repaid')} 
+                style={tw`flex-1 py-1.5 rounded-lg items-center ${loanDirection === 'repaid' ? 'bg-amber-500 shadow-sm' : ''}`}
+              >
+                <Text style={tw`font-bold text-xs ${loanDirection === 'repaid' ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`}>
+                  - Repayment / Lent
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Balanced Amount & Currency Display with Live Formula Preview */}
+          <View style={tw`items-center justify-center my-2`}>
+            {currentMathResult !== null && (
+              <Text style={tw`text-xs font-bold text-blue-500 mb-1`}>
+                = ₱{currentMathResult.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </Text>
+            )}
+            <View style={tw`flex-row items-center justify-center`}>
+              <Text style={tw`text-3xl font-black text-slate-400 dark:text-slate-500 mr-1.5`}>₱</Text>
+              <Text style={tw`text-5xl font-black text-slate-800 dark:text-white tracking-tight`} numberOfLines={1}>
+                {amount}
+              </Text>
+            </View>
+          </View>
+
+          {/* Date Selector & Loan Due Date Chips Row */}
+          <View style={tw`flex-row items-center gap-2 mb-3`}>
+            <TouchableOpacity 
+              onPress={() => setShowDatePicker(true)}
+              style={tw`flex-row items-center bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-full`}
+            >
+              <Calendar size={14} color="#64748b" style={tw`mr-1.5`} />
+              <Text style={tw`text-xs font-bold text-slate-700 dark:text-slate-300`}>
+                {formatDateLabel(selectedDate)}
+              </Text>
+            </TouchableOpacity>
+
+            {type === 'loan' && (
+              <TouchableOpacity 
+                onPress={() => setShowDueDatePicker(true)}
+                style={tw`flex-row items-center bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-3 py-1.5 rounded-full`}
+              >
+                <Clock size={14} color="#f59e0b" style={tw`mr-1.5`} />
+                <Text style={tw`text-xs font-bold text-amber-700 dark:text-amber-400`}>
+                  {loanDueDate ? `Due: ${formatDateLabel(loanDueDate)}` : 'Set Due Date'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Payment Account Selector */}
+          <View style={tw`mb-2`}>
+            <Text style={tw`text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider`}>Account / Payment Method</Text>
+            <GestureScrollView 
+              horizontal 
+              nestedScrollEnabled={true} 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={tw`flex-row gap-2 pr-4`}
+            >
+              {accounts.map(acc => {
+                const isSelected = selectedAccountId === acc.id;
+                return (
+                  <TouchableOpacity
+                    key={acc.id}
+                    onPress={() => setSelectedAccountId(acc.id)}
+                    style={[
+                      tw`flex-row items-center border px-3 py-1.5 rounded-xl`,
+                      isSelected 
+                        ? tw`bg-blue-600 border-blue-600` 
+                        : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-200 dark:border-slate-800`
+                    ]}
+                  >
+                    {acc.type === 'cash' ? <Wallet size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
+                     acc.type === 'ewallet' ? <Smartphone size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
+                     acc.type === 'credit' ? <CreditCard size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} /> :
+                     <Building2 size={14} color={isSelected ? '#fff' : '#64748b'} style={tw`mr-1.5`} />}
+                    <Text style={[tw`font-bold text-xs`, isSelected ? tw`text-white` : tw`text-slate-600 dark:text-slate-300`]}>
+                      {acc.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </GestureScrollView>
+          </View>
+
+          {/* Categories Selector with Smooth Horizontal Scrolling Fix */}
+          <View style={tw`mb-3`}>
+            <Text style={tw`text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-wider`}>Category</Text>
+            <GestureScrollView 
+              horizontal 
+              nestedScrollEnabled={true} 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={tw`flex-row gap-2 pr-6`}
+            >
+              {activeCategories.map((cat) => {
+                const IconComp = IconMap[cat.icon] || Tag;
+                const isSelected = selectedCategory === cat.name;
+                return (
+                  <TouchableOpacity 
+                    key={cat.id} 
+                    onPress={() => setSelectedCategory(cat.name)} 
+                    style={[
+                      tw`flex-row items-center border px-3.5 py-1.5 rounded-full`,
+                      isSelected 
+                        ? { backgroundColor: cat.color, borderColor: cat.color } 
+                        : { backgroundColor: isDark ? '#211F26' : '#f8fafc', borderColor: isDark ? '#334155' : '#e2e8f0' }
+                    ]}
+                  >
+                    {isSelected ? (
+                      <Check size={14} color="#fff" style={tw`mr-1.5`} />
+                    ) : (
+                      <IconComp size={14} color={cat.color} style={tw`mr-1.5`} />
+                    )}
+                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? '#fff' : (isDark ? '#cbd5e1' : '#64748b') }]}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </GestureScrollView>
+          </View>
+
+          {/* Note Input */}
+          <TextInput 
+            style={tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-800 dark:text-white mb-2`} 
+            placeholderTextColor="#64748b" 
+            placeholder="Note / Description (e.g. Lunch with friends)" 
+            value={title} 
+            onChangeText={setTitle} 
+          />
+
+          {/* Collapsible Keypad / Actions Area (Smoothly collapses when typing note) */}
+          {!isKeyboardVisible ? (
+            <View style={tw`mt-auto gap-2`}>
+              {[
+                ['1', '2', '3', '+'],
+                ['4', '5', '6', '-'],
+                ['7', '8', '9', 'del'],
+                ['.', '0', '=', 'C']
+              ].map((row, i) => (
+                <View key={i} style={tw`flex-row justify-between gap-2`}>
+                  {row.map((key) => {
+                    const isOp = key === '+' || key === '-' || key === '=';
+                    return (
+                      <TouchableOpacity 
+                        key={key} 
+                        onPress={() => handleKeyPress(key)} 
+                        style={[
+                          tw`flex-1 h-13 rounded-2xl items-center justify-center border`,
+                          isOp 
+                            ? tw`bg-blue-50 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30` 
+                            : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-100 dark:border-slate-800`
+                        ]}
+                      >
+                        {key === 'del' ? (
+                          <Delete color="#94a3b8" size={20} />
+                        ) : (
+                          <Text style={[tw`text-xl font-bold`, isOp ? tw`text-blue-600 dark:text-blue-400` : tw`text-slate-700 dark:text-slate-200`]}>
+                            {key}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
+
+              <View style={tw`flex-row gap-2 mt-1`}>
+                {selectedTxId && (
+                  <TouchableOpacity 
+                    onPress={handleDeleteTransaction} 
+                    style={tw`flex-1 bg-rose-50 dark:bg-rose-500/10 py-3.5 rounded-xl items-center border border-rose-200 dark:border-rose-500/20`}
+                  >
+                    <Text style={tw`text-rose-500 font-bold text-sm`}>Delete</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity 
+                  onPress={handleAddTransaction} 
+                  style={tw`flex-2 bg-blue-600 py-3.5 rounded-xl items-center`}
+                >
+                  <Text style={tw`text-white font-bold text-base`}>
+                    {selectedTxId ? 'Save Changes' : 'Save Transaction'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <View style={tw`mt-auto pt-2`}>
+              <TouchableOpacity 
+                onPress={() => Keyboard.dismiss()} 
+                style={tw`w-full bg-blue-600 py-3.5 rounded-xl items-center`}
+              >
+                <Text style={tw`text-white font-bold text-base`}>Done Typing</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
         </BottomSheetView>
       </BottomSheet>
+
+      {/* Quick Transaction Date Modal */}
+      <Modal visible={showDatePicker} transparent animationType="fade">
+        <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
+          <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
+            <Text style={tw`text-lg font-bold text-slate-800 dark:text-white mb-4`}>Select Transaction Date</Text>
+            
+            <View style={tw`gap-2 mb-4`}>
+              <TouchableOpacity 
+                onPress={() => { setSelectedDate(new Date().toISOString()); setShowDatePicker(false); }}
+                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
+              >
+                <Text style={tw`font-bold text-slate-800 dark:text-white`}>Today</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={() => { 
+                  const d = new Date(); 
+                  d.setDate(d.getDate() - 1); 
+                  setSelectedDate(d.toISOString()); 
+                  setShowDatePicker(false); 
+                }}
+                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
+              >
+                <Text style={tw`font-bold text-slate-800 dark:text-white`}>Yesterday</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={() => { 
+                  const d = new Date(); 
+                  d.setDate(d.getDate() - 2); 
+                  setSelectedDate(d.toISOString()); 
+                  setShowDatePicker(false); 
+                }}
+                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
+              >
+                <Text style={tw`font-bold text-slate-800 dark:text-white`}>2 Days Ago</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput 
+              style={tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold text-slate-800 dark:text-white mb-4`}
+              placeholder="Or enter YYYY-MM-DD"
+              placeholderTextColor="#64748b"
+              value={customDateInput}
+              onChangeText={setCustomDateInput}
+            />
+
+            <View style={tw`flex-row gap-2`}>
+              <TouchableOpacity onPress={() => setShowDatePicker(false)} style={tw`flex-1 p-3 rounded-xl items-center`}>
+                <Text style={tw`font-bold text-slate-500`}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => {
+                  if (customDateInput) {
+                    const parsed = new Date(customDateInput);
+                    if (!isNaN(parsed.getTime())) {
+                      setSelectedDate(parsed.toISOString());
+                    }
+                  }
+                  setShowDatePicker(false);
+                  setCustomDateInput('');
+                }} 
+                style={tw`flex-1 bg-blue-600 p-3 rounded-xl items-center`}
+              >
+                <Text style={tw`text-white font-bold`}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Quick Loan Due Date Modal */}
+      <Modal visible={showDueDatePicker} transparent animationType="fade">
+        <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
+          <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
+            <Text style={tw`text-lg font-bold text-slate-800 dark:text-white mb-2`}>Loan Repayment Due Date</Text>
+            <Text style={tw`text-xs text-slate-500 dark:text-slate-400 mb-4`}>Set when this loan is scheduled to be paid.</Text>
+            
+            <View style={tw`gap-2 mb-4`}>
+              <TouchableOpacity 
+                onPress={() => { 
+                  const d = new Date(); 
+                  d.setDate(d.getDate() + 7); 
+                  setLoanDueDate(d.toISOString()); 
+                  setShowDueDatePicker(false); 
+                }}
+                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
+              >
+                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 1 Week</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={() => { 
+                  const d = new Date(); 
+                  d.setDate(d.getDate() + 15); 
+                  setLoanDueDate(d.toISOString()); 
+                  setShowDueDatePicker(false); 
+                }}
+                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
+              >
+                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 15 Days (Next Payday)</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                onPress={() => { 
+                  const d = new Date(); 
+                  d.setDate(d.getDate() + 30); 
+                  setLoanDueDate(d.toISOString()); 
+                  setShowDueDatePicker(false); 
+                }}
+                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
+              >
+                <Text style={tw`font-bold text-slate-800 dark:text-white`}>In 30 Days (Next Month)</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput 
+              style={tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold text-slate-800 dark:text-white mb-4`}
+              placeholder="Or enter YYYY-MM-DD"
+              placeholderTextColor="#64748b"
+              value={customDateInput}
+              onChangeText={setCustomDateInput}
+            />
+
+            <View style={tw`flex-row gap-2`}>
+              <TouchableOpacity onPress={() => setShowDueDatePicker(false)} style={tw`flex-1 p-3 rounded-xl items-center`}>
+                <Text style={tw`font-bold text-slate-500`}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={() => {
+                  if (customDateInput) {
+                    const parsed = new Date(customDateInput);
+                    if (!isNaN(parsed.getTime())) {
+                      setLoanDueDate(parsed.toISOString());
+                    }
+                  }
+                  setShowDueDatePicker(false);
+                  setCustomDateInput('');
+                }} 
+                style={tw`flex-1 bg-amber-500 p-3 rounded-xl items-center`}
+              >
+                <Text style={tw`text-white font-bold`}>Save Due Date</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }

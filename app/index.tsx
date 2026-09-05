@@ -36,7 +36,7 @@ export default function WelcomeScreen() {
               resizeMode="contain" 
             />
           </View>
-          <Text style={tw`text-5xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tighter`}>Spent</Text>
+          <Text style={tw`text-5xl font-black text-slate-900 dark:text-white text-center mb-3 tracking-tighter`}>SPENT</Text>
           <Text style={tw`text-lg font-bold text-slate-500 dark:text-slate-400 text-center tracking-wide px-4`}>Your finances, simplified and amplified.</Text>
         </View>
 

@@ -29,7 +29,7 @@ export default function RootLayout() {
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
         if (hasHardware && isEnrolled) {
           const result = await LocalAuthentication.authenticateAsync({
-            promptMessage: 'Authenticate to open Spent',
+            promptMessage: 'Authenticate to open SPENT',
             fallbackLabel: 'Use Passcode'
           });
           if (result.success) {
@@ -54,7 +54,7 @@ export default function RootLayout() {
         <View style={tw`w-24 h-24 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mb-6`}>
           <Shield size={40} color="#3b82f6" />
         </View>
-        <Text style={tw`text-2xl font-black text-slate-800 dark:text-white mb-2`}>Spent is Locked</Text>
+        <Text style={tw`text-2xl font-black text-slate-800 dark:text-white mb-2`}>SPENT is Locked</Text>
         <Text style={tw`text-center text-slate-500 dark:text-slate-400 mb-8`}>Biometric authentication is required to access your financial data securely.</Text>
         <TouchableOpacity onPress={checkLock} style={tw`bg-blue-600 px-8 py-4 rounded-2xl shadow-lg shadow-blue-500/30 w-full items-center`}>
           <Text style={tw`text-white font-bold text-lg`}>Unlock</Text>

@@ -1,6 +1,6 @@
 {
   "name": "react-native-app",
-  "version": "1.0.0",
+  "version": "1.00.2",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/metro-runtime": "~57.0.0",

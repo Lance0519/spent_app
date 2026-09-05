@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "SPENT 1.01",
+    "name": "SPENT",
     "slug": "finance-manager-app",
-    "version": "1.0.1",
+    "version": "1.00.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.justine.spent",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Spent needs Face ID to secure your financial data."
+        "NSFaceIDUsageDescription": "SPENT needs Face ID to secure your financial data."
       }
     },
     "android": {
@@ -43,7 +43,7 @@
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Allow Spent App to use Face ID."
+          "faceIDPermission": "Allow SPENT App to use Face ID."
         }
       ]
     ],
