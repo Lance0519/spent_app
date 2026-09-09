@@ -280,6 +280,7 @@ const initDatabase = (database: SQLite.SQLiteDatabase) => {
       account_id INTEGER NOT NULL,
       to_account_id INTEGER,
       due_date TEXT,
+      notes TEXT,
       FOREIGN KEY (account_id) REFERENCES accounts(id),
       FOREIGN KEY (to_account_id) REFERENCES accounts(id)
     );
@@ -348,10 +349,26 @@ const initDatabase = (database: SQLite.SQLiteDatabase) => {
     database.runSync("ALTER TABLE transactions ADD COLUMN due_date TEXT");
   } catch(e) {}
 
+  try {
+    database.runSync("ALTER TABLE transactions ADD COLUMN notes TEXT");
+  } catch(e) {}
+
+  try {
+    database.runSync("ALTER TABLE user_profile ADD COLUMN is_logged_in INTEGER DEFAULT 1");
+  } catch(e) {}
+
+  try {
+    database.runSync("ALTER TABLE user_profile ADD COLUMN has_completed_onboarding INTEGER DEFAULT 0");
+  } catch(e) {}
+
+  try {
+    database.runSync("ALTER TABLE user_profile ADD COLUMN session_token TEXT");
+  } catch(e) {}
+
   const userCount = database.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM user_profile`);
   if (userCount && userCount.count === 0) {
     database.runSync(
-      `INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default) VALUES (1, ?, ?, 0, 'emerald', 'PHP', 0)`, 
+      `INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default, is_logged_in, has_completed_onboarding) VALUES (1, ?, ?, 0, 'emerald', 'PHP', 0, 1, 0)`, 
       ['John Doe', 'john.doe@example.com']
     );
   }
@@ -428,16 +445,24 @@ export const transferFunds = (
   const transferDate = date || new Date().toISOString().split('T')[0];
   const title = notes && notes.trim() ? `Transfer: ${notes.trim()}` : 'Account Transfer';
   
-  // Deduct from source
-  db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, fromAccountId]);
-  // Add to destination
-  db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, toAccountId]);
-  
-  // Log transfer transaction for auditability
-  db.runSync(
-    'INSERT INTO transactions (title, amount, type, date, category, account_id, to_account_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [title, -amount, 'expense', transferDate, 'Transfer', fromAccountId, toAccountId]
-  );
+  const execute = () => {
+    // Deduct from source
+    db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, fromAccountId]);
+    // Add to destination
+    db.runSync('UPDATE accounts SET balance = balance + ? WHERE id = ?', [amount, toAccountId]);
+    
+    // Log transfer transaction with dedicated type = 'transfer'
+    db.runSync(
+      'INSERT INTO transactions (title, amount, type, date, category, account_id, to_account_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [title, -amount, 'transfer', transferDate, 'Transfer', fromAccountId, toAccountId]
+    );
+  };
+
+  if ('withTransactionSync' in db && typeof (db as any).withTransactionSync === 'function') {
+    (db as any).withTransactionSync(execute);
+  } else {
+    execute();
+  }
 };
 
 export const exportTransactionsCSV = (): string => {
@@ -619,19 +644,76 @@ export const deleteCategory = (id: number) => {
 };
 
 // --- TRANSACTIONS CRUD ---
+export const addTransaction = (
+  title: string,
+  amount: number,
+  type: string,
+  category: string,
+  date: string,
+  accountId: number,
+  dueDate?: string | null,
+  notes?: string | null,
+  splitItems?: { description: string; price: number }[]
+) => {
+  const db = getDB();
+  const execute = () => {
+    const res = db.runSync(
+      `INSERT INTO transactions (title, amount, type, date, category, account_id, due_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, amount, type, date, category, accountId, dueDate || null, notes || null]
+    );
+    db.runSync(
+      `UPDATE accounts SET balance = balance + ? WHERE id = ?`,
+      [amount, accountId]
+    );
+
+    // Persist split breakdown items if provided
+    if (splitItems && splitItems.length > 0 && res.lastInsertRowId) {
+      for (const item of splitItems) {
+        db.runSync(
+          `INSERT INTO split_transactions (transaction_id, amount, category) VALUES (?, ?, ?)`,
+          [res.lastInsertRowId, item.price, item.description]
+        );
+      }
+    }
+  };
+
+  if ('withTransactionSync' in db && typeof (db as any).withTransactionSync === 'function') {
+    (db as any).withTransactionSync(execute);
+  } else {
+    execute();
+  }
+};
+
 export const deleteTransaction = (id: number) => {
   const db = getDB();
-  const tx = db.getFirstSync<{ amount: number; account_id: number; type: string }>(
-    `SELECT amount, account_id, type FROM transactions WHERE id = ?`, 
+  const tx = db.getFirstSync<{ amount: number; account_id: number; to_account_id?: number | null; type: string }>(
+    `SELECT amount, account_id, to_account_id, type FROM transactions WHERE id = ?`, 
     [id]
   );
   
   if (tx) {
-    // Reverse the transaction impact on the account balance
-    // If expense (amount < 0), subtracting it adds it back to balance
-    // If income (amount > 0), subtracting it removes it from balance
-    db.runSync(`UPDATE accounts SET balance = balance - ? WHERE id = ?`, [tx.amount, tx.account_id]);
-    db.runSync(`DELETE FROM transactions WHERE id = ?`, [id]);
+    const execute = () => {
+      if (tx.type === 'transfer') {
+        const transferAmt = Math.abs(tx.amount);
+        // Add back to source
+        db.runSync(`UPDATE accounts SET balance = balance + ? WHERE id = ?`, [transferAmt, tx.account_id]);
+        // Deduct from destination
+        if (tx.to_account_id) {
+          db.runSync(`UPDATE accounts SET balance = balance - ? WHERE id = ?`, [transferAmt, tx.to_account_id]);
+        }
+      } else {
+        // Reverse standard transaction impact on account balance
+        db.runSync(`UPDATE accounts SET balance = balance - ? WHERE id = ?`, [tx.amount, tx.account_id]);
+      }
+      db.runSync(`DELETE FROM split_transactions WHERE transaction_id = ?`, [id]);
+      db.runSync(`DELETE FROM transactions WHERE id = ?`, [id]);
+    };
+
+    if ('withTransactionSync' in db && typeof (db as any).withTransactionSync === 'function') {
+      (db as any).withTransactionSync(execute);
+    } else {
+      execute();
+    }
   }
 };
 
@@ -643,7 +725,9 @@ export const updateTransaction = (
   category: string, 
   date: string,
   account_id?: number,
-  due_date?: string | null
+  due_date?: string | null,
+  notes?: string | null,
+  splitItems?: { description: string; price: number }[]
 ) => {
   const db = getDB();
   const oldTx = db.getFirstSync<{ amount: number; account_id: number; type: string }>(
@@ -659,18 +743,45 @@ export const updateTransaction = (
     } else if (type === 'income') {
       signedAmount = Math.abs(amount);
     }
-    
-    // Reverse old transaction impact on previous account balance
-    db.runSync(`UPDATE accounts SET balance = balance - ? WHERE id = ?`, [oldTx.amount, oldTx.account_id]);
-    // Apply new transaction impact to target account balance
-    db.runSync(`UPDATE accounts SET balance = balance + ? WHERE id = ?`, [signedAmount, targetAccountId]);
-    
-    // Update transaction
-    db.runSync(
-      `UPDATE transactions SET title = ?, amount = ?, type = ?, category = ?, date = ?, account_id = ?, due_date = ? WHERE id = ?`,
-      [title, signedAmount, type, category, date, targetAccountId, due_date || null, id]
-    );
+
+    const execute = () => {
+      // Reverse old transaction impact on previous account balance
+      db.runSync(`UPDATE accounts SET balance = balance - ? WHERE id = ?`, [oldTx.amount, oldTx.account_id]);
+      // Apply new transaction impact to target account balance
+      db.runSync(`UPDATE accounts SET balance = balance + ? WHERE id = ?`, [signedAmount, targetAccountId]);
+      
+      // Update transaction
+      db.runSync(
+        `UPDATE transactions SET title = ?, amount = ?, type = ?, category = ?, date = ?, account_id = ?, due_date = ?, notes = ? WHERE id = ?`,
+        [title, signedAmount, type, category, date, targetAccountId, due_date || null, notes || null, id]
+      );
+
+      // Refresh split transactions if provided
+      if (splitItems) {
+        db.runSync(`DELETE FROM split_transactions WHERE transaction_id = ?`, [id]);
+        for (const item of splitItems) {
+          db.runSync(
+            `INSERT INTO split_transactions (transaction_id, amount, category) VALUES (?, ?, ?)`,
+            [id, item.price, item.description]
+          );
+        }
+      }
+    };
+
+    if ('withTransactionSync' in db && typeof (db as any).withTransactionSync === 'function') {
+      (db as any).withTransactionSync(execute);
+    } else {
+      execute();
+    }
   }
+};
+
+export const getSplitTransactions = (transactionId: number) => {
+  const db = getDB();
+  return db.getAllSync<{ id: number; transaction_id: number; amount: number; category: string }>(
+    'SELECT * FROM split_transactions WHERE transaction_id = ?',
+    [transactionId]
+  );
 };
 
 // --- REMINDERS API ---
@@ -777,6 +888,34 @@ export const addToGoal = (id: number, amount: number): void => {
   dbInstance.runSync('UPDATE goals SET current_amount = current_amount + ? WHERE id = ?', [amount, id]);
 };
 
+export const contributeToGoal = (goalId: number, accountId: number, amount: number): void => {
+  const db = getDB();
+  const goal = db.getFirstSync<{ id: number; title: string }>('SELECT id, title FROM goals WHERE id = ?', [goalId]);
+  const acc = db.getFirstSync<{ id: number; name: string }>('SELECT id, name FROM accounts WHERE id = ?', [accountId]);
+  
+  if (!goal) throw new Error('Goal not found');
+  if (!acc) throw new Error('Source account not found');
+
+  const execute = () => {
+    // 1. Deduct funds from funding account
+    db.runSync('UPDATE accounts SET balance = balance - ? WHERE id = ?', [amount, accountId]);
+    // 2. Increment goal current_amount
+    db.runSync('UPDATE goals SET current_amount = current_amount + ? WHERE id = ?', [amount, goalId]);
+    // 3. Log audit record as transfer / savings
+    const now = new Date().toISOString();
+    db.runSync(
+      'INSERT INTO transactions (title, amount, type, date, category, account_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [`Savings: ${goal.title}`, -amount, 'transfer', now, 'Savings Goal', accountId]
+    );
+  };
+
+  if ('withTransactionSync' in db && typeof (db as any).withTransactionSync === 'function') {
+    (db as any).withTransactionSync(execute);
+  } else {
+    execute();
+  }
+};
+
 export const exportBackupJSON = (): string => {
   const dbInstance = getDB();
   
@@ -803,25 +942,38 @@ export const exportBackupJSON = (): string => {
 };
 
 export const importBackupJSON = (jsonString: string): void => {
+  let backup: any;
   try {
-    const backup = JSON.parse(jsonString);
-    if (!backup.data) throw new Error("Invalid backup format");
-    
-    const { 
-      accounts, 
-      categories, 
-      transactions, 
-      splitTransactions, 
-      budgets, 
-      goals,
-      reminders,
-      userProfile 
-    } = backup.data;
-    
-    const dbInstance = getDB();
+    backup = JSON.parse(jsonString);
+  } catch (e) {
+    throw new Error("Malformed JSON backup file");
+  }
+
+  if (!backup || !backup.data || typeof backup.data !== 'object') {
+    throw new Error("Invalid backup format: missing root 'data' object");
+  }
+  
+  const { 
+    accounts, 
+    categories, 
+    transactions, 
+    splitTransactions, 
+    budgets, 
+    goals,
+    reminders,
+    userProfile 
+  } = backup.data;
+
+  if (accounts && !Array.isArray(accounts)) throw new Error("Invalid accounts array in backup");
+  if (categories && !Array.isArray(categories)) throw new Error("Invalid categories array in backup");
+  if (transactions && !Array.isArray(transactions)) throw new Error("Invalid transactions array in backup");
+
+  const dbInstance = getDB();
+
+  const restoreOperation = () => {
     dbInstance.execSync('PRAGMA foreign_keys = OFF;');
     
-    // Clear existing data
+    // Clear existing data inside atomic transaction
     dbInstance.runSync('DELETE FROM split_transactions');
     dbInstance.runSync('DELETE FROM transactions');
     dbInstance.runSync('DELETE FROM categories');
@@ -853,7 +1005,7 @@ export const importBackupJSON = (jsonString: string): void => {
     // Restore Transactions
     if (transactions && Array.isArray(transactions)) {
       transactions.forEach((tx: any) => {
-        const accId = tx.account_id || tx.accountId || 1; // Fallback to Cash account if missing
+        const accId = tx.account_id || tx.accountId || 1;
         const toAccId = tx.to_account_id || tx.toAccountId || null;
         dbInstance.runSync(
           'INSERT INTO transactions (id, account_id, to_account_id, title, amount, type, date, category, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -866,7 +1018,7 @@ export const importBackupJSON = (jsonString: string): void => {
     if (splitTransactions && Array.isArray(splitTransactions)) {
       splitTransactions.forEach((stx: any) => {
         const tId = stx.transaction_id || stx.transactionId;
-        if (!tId) return; // Skip malformed split transactions missing their parent ID
+        if (!tId) return;
         dbInstance.runSync(
           'INSERT INTO split_transactions (id, transaction_id, category, amount) VALUES (?, ?, ?, ?)',
           [stx.id, tId, stx.category, stx.amount || 0]
@@ -879,7 +1031,7 @@ export const importBackupJSON = (jsonString: string): void => {
       budgets.forEach((b: any) => {
         dbInstance.runSync(
           'INSERT INTO budgets (id, category, amount, period) VALUES (?, ?, ?, ?)',
-          [b.id, b.category, b.amount, b.period]
+          [b.id, b.category, b.amount, b.period || 'monthly']
         );
       });
     }
@@ -889,7 +1041,7 @@ export const importBackupJSON = (jsonString: string): void => {
       goals.forEach((g: any) => {
         dbInstance.runSync(
           'INSERT INTO goals (id, title, target_amount, current_amount, color, icon, deadline) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [g.id, g.title, g.target_amount, g.current_amount, g.color, g.icon, g.deadline]
+          [g.id, g.title, g.target_amount, g.current_amount || 0, g.color, g.icon, g.deadline]
         );
       });
     }
@@ -921,12 +1073,88 @@ export const importBackupJSON = (jsonString: string): void => {
       );
     }
 
-    // Re-enable foreign keys
     dbInstance.execSync('PRAGMA foreign_keys = ON;');
-  } catch (error) {
-    console.error("Failed to import backup:", error);
-    throw error;
+  };
+
+  if ('withTransactionSync' in dbInstance && typeof (dbInstance as any).withTransactionSync === 'function') {
+    (dbInstance as any).withTransactionSync(restoreOperation);
+  } else {
+    restoreOperation();
   }
+};
+
+// --- SESSION & ONBOARDING HELPERS ---
+export const getSessionStatus = (): { isLoggedIn: boolean; hasCompletedOnboarding: boolean; sessionToken: string | null } => {
+  try {
+    const db = getDB();
+    const row = db.getFirstSync<{ is_logged_in?: number; has_completed_onboarding?: number; session_token?: string }>(
+      'SELECT is_logged_in, has_completed_onboarding, session_token FROM user_profile WHERE id = 1'
+    );
+    return {
+      isLoggedIn: (row?.is_logged_in ?? 1) === 1,
+      hasCompletedOnboarding: (row?.has_completed_onboarding ?? 0) === 1,
+      sessionToken: row?.session_token || null
+    };
+  } catch {
+    return { isLoggedIn: true, hasCompletedOnboarding: false, sessionToken: null };
+  }
+};
+
+export const startUserSession = (token?: string): void => {
+  try {
+    const db = getDB();
+    const sToken = token || `session_${Date.now()}`;
+    db.runSync('UPDATE user_profile SET is_logged_in = 1, has_completed_onboarding = 1, session_token = ? WHERE id = 1', [sToken]);
+  } catch (e) {
+    console.warn('Failed to start session:', e);
+  }
+};
+
+export const terminateUserSession = (): void => {
+  try {
+    const db = getDB();
+    db.runSync('UPDATE user_profile SET is_logged_in = 0, session_token = NULL WHERE id = 1');
+  } catch (e) {
+    console.warn('Failed to terminate session:', e);
+  }
+};
+
+export const completeOnboarding = (): void => {
+  try {
+    const db = getDB();
+    db.runSync('UPDATE user_profile SET has_completed_onboarding = 1 WHERE id = 1');
+  } catch (e) {}
+};
+
+// --- SQL-AGGREGATED MONTHLY METRICS (BYPASSES LIMIT 20) ---
+export type MonthlySummary = {
+  totalIncome: number;
+  totalExpense: number;
+  netSavings: number;
+};
+
+export const getMonthlySummary = (targetMonthIso?: string): MonthlySummary => {
+  const db = getDB();
+  const targetPrefix = targetMonthIso 
+    ? targetMonthIso.slice(0, 7)
+    : new Date().toISOString().slice(0, 7);
+
+  const row = db.getFirstSync<{ total_income: number; total_expense: number }>(
+    `SELECT 
+       COALESCE(SUM(CASE WHEN type = 'income' OR (type = 'loan' AND amount > 0) THEN ABS(amount) ELSE 0 END), 0) AS total_income,
+       COALESCE(SUM(CASE WHEN type = 'expense' OR (type = 'loan' AND amount < 0) THEN ABS(amount) ELSE 0 END), 0) AS total_expense
+     FROM transactions 
+     WHERE type != 'transfer' AND substr(date, 1, 7) = ?`,
+    [targetPrefix]
+  );
+
+  const totalIncome = row?.total_income || 0;
+  const totalExpense = row?.total_expense || 0;
+  return {
+    totalIncome,
+    totalExpense,
+    netSavings: totalIncome - totalExpense
+  };
 };
 
 export const seedMockDataIfNeeded = () => {

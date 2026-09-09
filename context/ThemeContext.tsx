@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import tw, { useAppColorScheme } from 'twrnc';
-import { getAccentColorFromDB, setAccentColorInDB } from '../db/database';
+import { getAccentColorFromDB, setAccentColorInDB, getUserProfile, updateUserProfile } from '../db/database';
 
 export type AccentPaletteKey = 'emerald' | 'indigo' | 'amber' | 'cyan' | 'rose';
 
@@ -15,9 +15,32 @@ export interface PaletteConfig {
 export const ACCENT_PALETTES: Record<AccentPaletteKey, PaletteConfig> = {
   emerald: { key: 'emerald', name: 'Emerald', light: '#10B981', dark: '#34D399', swatch: '#10B981' },
   indigo: { key: 'indigo', name: 'Electric Indigo', light: '#6366F1', dark: '#818CF8', swatch: '#6366F1' },
-  amber: { key: 'amber', name: 'Amber', light: '#F59E0B', dark: '#FBBF24', swatch: '#F59E0B' },
-  cyan: { key: 'cyan', name: 'Cyan', light: '#06B6D4', dark: '#22D3EE', swatch: '#06B6D4' },
+  // Darkened Amber & Cyan in light mode to ensure WCAG AA contrast against light surfaces
+  amber: { key: 'amber', name: 'Amber', light: '#D97706', dark: '#FBBF24', swatch: '#D97706' },
+  cyan: { key: 'cyan', name: 'Cyan', light: '#0891B2', dark: '#22D3EE', swatch: '#0891B2' },
   rose: { key: 'rose', name: 'Rose', light: '#F43F5E', dark: '#FB7185', swatch: '#F43F5E' },
+};
+
+export const SUPPORTED_CURRENCIES: { code: string; symbol: string; name: string }[] = [
+  { code: 'PHP', symbol: '₱', name: 'Philippine Peso' },
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
+  { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar' },
+  { code: 'AUD', symbol: 'AU$', name: 'Australian Dollar' },
+  { code: 'SGD', symbol: 'SG$', name: 'Singapore Dollar' },
+];
+
+export const CURRENCY_SYMBOLS: Record<string, string> = {
+  PHP: '₱',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  JPY: '¥',
+  CAD: 'CA$',
+  AUD: 'AU$',
+  SGD: 'SG$',
 };
 
 /**
@@ -45,6 +68,10 @@ interface ThemeContextType extends ThemeTextTokens {
   accentColor: string;
   palette: PaletteConfig;
   isDark: boolean;
+  currency: string;
+  currencySymbol: string;
+  formatCurrency: (amount: number, options?: { showSign?: boolean; minimumFractionDigits?: number; maximumFractionDigits?: number }) => string;
+  setCurrency: (code: string) => void;
   setAccentColor: (key: AccentPaletteKey) => void;
   toggleDarkMode: () => void;
   setColorScheme: (scheme: 'light' | 'dark') => void;
@@ -59,6 +86,10 @@ const ThemeContext = createContext<ThemeContextType>({
   textSecondary: '#71717A',
   textMuted: '#A1A1AA',
   textOnAccent: '#FFFFFF',
+  currency: 'PHP',
+  currencySymbol: '₱',
+  formatCurrency: (val: number) => `₱${val.toFixed(2)}`,
+  setCurrency: () => {},
   setAccentColor: () => {},
   toggleDarkMode: () => {},
   setColorScheme: () => {},
@@ -68,6 +99,7 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [colorScheme, toggleColorScheme, setColorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
   const [accentKey, setAccentState] = useState<AccentPaletteKey>('emerald');
+  const [currency, setCurrencyState] = useState<string>('PHP');
 
   useEffect(() => {
     try {
@@ -75,8 +107,12 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (savedKey && ACCENT_PALETTES[savedKey]) {
         setAccentState(savedKey);
       }
+      const prof = getUserProfile();
+      if (prof.currency) {
+        setCurrencyState(prof.currency);
+      }
     } catch (e) {
-      console.warn('Failed to load accent color:', e);
+      console.warn('Failed to load theme settings:', e);
     }
   }, []);
 
@@ -86,12 +122,37 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setAccentColorInDB(key);
   };
 
+  const setCurrency = (code: string) => {
+    setCurrencyState(code);
+    try {
+      updateUserProfile(undefined, undefined, code);
+    } catch (e) {
+      console.warn('Failed to save currency to DB:', e);
+    }
+  };
+
   const toggleDarkMode = () => {
     toggleColorScheme();
   };
 
   const activePalette = ACCENT_PALETTES[accentKey] || ACCENT_PALETTES.emerald;
   const accentColor = isDark ? activePalette.dark : activePalette.light;
+  const currencySymbol = CURRENCY_SYMBOLS[currency] || '₱';
+
+  const formatCurrency = (
+    amount: number,
+    options?: { showSign?: boolean; minimumFractionDigits?: number; maximumFractionDigits?: number }
+  ) => {
+    const minDigits = options?.minimumFractionDigits ?? 2;
+    const maxDigits = options?.maximumFractionDigits ?? 2;
+    const isNegative = amount < 0;
+    const absFormatted = Math.abs(amount).toLocaleString(undefined, {
+      minimumFractionDigits: minDigits,
+      maximumFractionDigits: maxDigits,
+    });
+    const sign = options?.showSign ? (isNegative ? '-' : '+') : (isNegative ? '-' : '');
+    return `${sign}${currencySymbol}${absFormatted}`;
+  };
 
   // Semantic dynamic text tokens based on current mode (isDark)
   const textPrimary = isDark ? '#FFFFFF' : '#18181B';
@@ -105,6 +166,10 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       accentColor, 
       palette: activePalette, 
       isDark,
+      currency,
+      currencySymbol,
+      formatCurrency,
+      setCurrency,
       textPrimary,
       textSecondary,
       textMuted,
@@ -119,3 +184,4 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
 };
 
 export const useTheme = () => useContext(ThemeContext);
+

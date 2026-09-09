@@ -1,203 +1,48 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Alert, Modal, Keyboard } from 'react-native';
-import { ScrollView as GestureScrollView } from 'react-native-gesture-handler';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { 
-  ArrowUpRight, ArrowDownRight, Delete, Tag, Check, Calendar, Clock, 
-  Wallet, CreditCard, Smartphone, Building2 
+  ArrowUpRight, ArrowDownRight, ArrowRightLeft, Clock, Search, X, Plus, Inbox, CreditCard, Camera, Receipt
 } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import tw, { useAppColorScheme } from 'twrnc';
-import { 
-  getDB, 
-  deleteTransaction, 
-  updateTransaction, 
-  getCategories, 
-  Category, 
-  getAccounts, 
-  Account 
-} from '../../db/database';
+import { FinanceService, Category, Account } from '../../services/FinanceService';
 import { IconMap } from '../../utils/Icons';
 import { useTheme } from '../../context/ThemeContext';
-
-type Transaction = {
-  id: number;
-  title: string;
-  amount: number;
-  date: string;
-  type: string;
-  category: string;
-  account_id: number;
-  due_date?: string | null;
-};
+import { TransactionBottomSheet, TransactionBottomSheetRef, TransactionData } from '../../components/TransactionBottomSheet';
 
 export default function TransactionsScreen() {
   const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
-  const { accentColor, textPrimary, textSecondary, textMuted, textOnAccent } = useTheme();
+  const { accentColor, palette, textPrimary, textSecondary, textMuted, textOnAccent, formatCurrency } = useTheme();
+  
   const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'loan'>('all');
-  const [allData, setAllData] = useState<Transaction[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [allData, setAllData] = useState<TransactionData[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   
-  // Edit Modal State
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
-  const [amount, setAmount] = useState('0');
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState<'expense' | 'income' | 'loan'>('expense');
-  const [loanDirection, setLoanDirection] = useState<'borrowed' | 'repaid'>('borrowed');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedAccountId, setSelectedAccountId] = useState<number>(1);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString());
-  const [loanDueDate, setLoanDueDate] = useState<string | null>(null);
-
-  // Date Pickers
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
-  const [customDateInput, setCustomDateInput] = useState('');
-
-  // Keyboard Overlap State
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
-    const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
+  const bottomSheetRef = useRef<TransactionBottomSheetRef>(null);
 
   useFocusEffect(
     useCallback(() => {
       fetchData();
-    }, [])
+    }, [filter, searchQuery])
   );
 
   const fetchData = () => {
     try {
-      const db = getDB();
-      const txs = (db.getAllSync('SELECT * FROM transactions ORDER BY date DESC') as any) as Transaction[];
+      const txs = FinanceService.getTransactions({
+        type: filter === 'all' ? undefined : filter,
+        search: searchQuery
+      }) as TransactionData[];
       setAllData(txs);
-      setCategories(getCategories());
-      setAccounts(getAccounts());
+      setCategories(FinanceService.getCategories());
+      setAccounts(FinanceService.getAccounts());
     } catch (e) {
-      console.log(e);
-    }
-  };
-
-  const evaluateMath = (expr: string): number => {
-    try {
-      const clean = expr.replace(/[^0-9.+-]/g, '');
-      if (!clean) return 0;
-      const parts = clean.match(/([+-]?[0-9.]+)/g);
-      if (!parts) return 0;
-      const res = parts.reduce((acc, part) => acc + (parseFloat(part) || 0), 0);
-      return isNaN(res) ? 0 : Math.round(res * 100) / 100;
-    } catch {
-      return parseFloat(expr) || 0;
-    }
-  };
-
-  const openEditModal = (tx: Transaction) => {
-    setSelectedTxId(tx.id);
-    setTitle(tx.title);
-    setAmount(Math.abs(tx.amount).toString());
-    const txType = (tx.type === 'loan' ? 'loan' : tx.type === 'income' ? 'income' : 'expense') as 'expense' | 'income' | 'loan';
-    setType(txType);
-    if (txType === 'loan') {
-      setLoanDirection(tx.amount >= 0 ? 'borrowed' : 'repaid');
-      setLoanDueDate(tx.due_date || null);
-    }
-    setSelectedCategory(tx.category || '');
-    setSelectedAccountId(tx.account_id || accounts[0]?.id || 1);
-    setSelectedDate(tx.date || new Date().toISOString());
-    bottomSheetRef.current?.expand();
-  };
-
-  const handleUpdate = () => {
-    if (!selectedTxId) return;
-    const finalAmount = evaluateMath(amount);
-    if (finalAmount <= 0) {
-      Alert.alert("Invalid Amount", "Please enter an amount greater than 0.");
-      return;
-    }
-
-    const catName = selectedCategory || title || (type === 'loan' ? 'Loan' : type === 'income' ? 'Salary' : 'Other');
-    const txTitle = title.trim() || catName;
-    const targetAccountId = selectedAccountId || (accounts[0]?.id || 1);
-    
-    let signedAmount = finalAmount;
-    if (type === 'expense') {
-      signedAmount = -Math.abs(finalAmount);
-    } else if (type === 'income') {
-      signedAmount = Math.abs(finalAmount);
-    } else if (type === 'loan') {
-      signedAmount = loanDirection === 'borrowed' ? Math.abs(finalAmount) : -Math.abs(finalAmount);
-    }
-
-    const txDate = selectedDate || new Date().toISOString();
-    const dueDate = type === 'loan' ? loanDueDate : null;
-
-    updateTransaction(selectedTxId, txTitle, signedAmount, type, catName, txDate, targetAccountId, dueDate);
-    fetchData();
-    bottomSheetRef.current?.close();
-  };
-
-  const handleDelete = () => {
-    if (!selectedTxId) return;
-    Alert.alert(
-      "Delete Transaction",
-      "Are you sure you want to delete this transaction?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: () => {
-            deleteTransaction(selectedTxId);
-            fetchData();
-            bottomSheetRef.current?.close();
-          } 
-        }
-      ]
-    );
-  };
-
-  const handleTypeChange = (newType: 'expense' | 'income' | 'loan') => {
-    setType(newType);
-    const available = categories.filter(c => c.type === newType);
-    if (available.length > 0) {
-      setSelectedCategory(available[0].name);
-    } else {
-      setSelectedCategory('');
-    }
-  };
-
-  const handleKeyPress = (key: string) => {
-    if (key === 'del') {
-      setAmount(prev => prev.length > 1 ? prev.slice(0, -1) : '0');
-    } else if (key === 'C') {
-      setAmount('0');
-    } else if (key === '=') {
-      setAmount(evaluateMath(amount).toString());
-    } else if (key === '+' || key === '-') {
-      if (amount.endsWith('+') || amount.endsWith('-')) {
-        setAmount(prev => prev.slice(0, -1) + key);
-      } else {
-        setAmount(prev => prev + key);
-      }
-    } else if (key === '.') {
-      const parts = amount.split(/[+-]/);
-      const currentNum = parts[parts.length - 1];
-      if (!currentNum.includes('.')) {
-        setAmount(prev => prev + '.');
-      }
-    } else {
-      setAmount(prev => prev === '0' ? key : prev + key);
+      console.warn('Transactions fetchData error:', e);
     }
   };
 
@@ -206,50 +51,62 @@ export default function TransactionsScreen() {
       const d = new Date(isoString);
       const today = new Date();
       if (d.toDateString() === today.toDateString()) return 'Today';
-      
       const yesterday = new Date();
       yesterday.setDate(today.getDate() - 1);
       if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
       return 'Date';
     }
   };
 
-  const filteredData = allData.filter(t => filter === 'all' || t.type === filter);
-  const activeCategories = categories.filter(c => c.type === type);
-  const currentMathResult = (amount.includes('+') || amount.includes('-')) ? evaluateMath(amount) : null;
-
-  const renderItem = ({ item }: { item: Transaction }) => {
+  const renderItem = ({ item }: { item: TransactionData }) => {
     const isIncome = item.type === 'income' || (item.type === 'loan' && item.amount > 0);
     const isLoan = item.type === 'loan';
+    const isTransfer = item.type === 'transfer';
     
     return (
-      <TouchableOpacity onPress={() => openEditModal(item)} style={tw`flex-row items-center justify-between py-4 border-b border-slate-100 dark:border-slate-800/50`}>
+      <TouchableOpacity 
+        onPress={() => bottomSheetRef.current?.openEdit(item)} 
+        style={tw`flex-row items-center justify-between py-3.5 px-2 border-b border-slate-100/80 dark:border-slate-800/50 min-h-[56px]`}
+        activeOpacity={0.7}
+      >
         <View style={tw`flex-row items-center flex-1 mr-2`}>
           <View style={[
-            tw`w-12 h-12 rounded-full items-center justify-center mr-4`,
-            isLoan 
+            tw`w-11 h-11 rounded-full items-center justify-center mr-3.5`,
+            isTransfer
+              ? tw`bg-blue-100 dark:bg-blue-500/10`
+              : isLoan 
               ? tw`bg-amber-100 dark:bg-amber-500/10` 
               : isIncome 
-                ? tw`bg-emerald-100 dark:bg-emerald-500/10` 
-                : tw`bg-rose-100 dark:bg-rose-500/10`
+              ? tw`bg-emerald-100 dark:bg-emerald-500/10` 
+              : tw`bg-rose-100 dark:bg-rose-500/10`
           ]}>
-            {isLoan ? (
-              <CreditCard color="#f59e0b" size={20} />
+            {isTransfer ? (
+              <ArrowRightLeft color="#3b82f6" size={19} />
+            ) : isLoan ? (
+              <CreditCard color="#f59e0b" size={19} />
             ) : isIncome ? (
-              <ArrowDownRight color="#10b981" size={22} />
+              <ArrowDownRight color="#10b981" size={20} />
             ) : (
-              <ArrowUpRight color="#f43f5e" size={22} />
+              <ArrowUpRight color="#f43f5e" size={20} />
             )}
           </View>
+
           <View style={tw`flex-1`}>
-            <Text style={[tw`text-base font-bold`, { color: textPrimary }]} numberOfLines={1}>{item.title}</Text>
+            <Text style={[tw`text-sm font-bold`, { color: textPrimary }]} numberOfLines={1}>
+              {item.title}
+            </Text>
             <View style={tw`flex-row items-center gap-1.5 mt-0.5`}>
-              <Text style={[tw`text-xs font-medium`, { color: textMuted }]}>
+              <Text style={[tw`text-[11px] font-semibold`, { color: textMuted }]}>
                 {new Date(item.date).toLocaleDateString()} • {item.category}
               </Text>
+              {item.notes ? (
+                <View style={[tw`px-1.5 py-0.5 rounded-md flex-row items-center`, { backgroundColor: `${accentColor}18` }]}>
+                  <Receipt size={10} color={accentColor} style={tw`mr-0.5`} />
+                  <Text style={[tw`text-[10px] font-bold`, { color: accentColor }]}>Receipt</Text>
+                </View>
+              ) : null}
               {isLoan && item.due_date && (
                 <View style={tw`bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded-full flex-row items-center`}>
                   <Clock size={10} color="#f59e0b" style={tw`mr-1`} />
@@ -261,30 +118,70 @@ export default function TransactionsScreen() {
             </View>
           </View>
         </View>
+
         <Text style={[
-          tw`text-lg font-black tracking-tight`,
-          isIncome ? tw`text-emerald-500 dark:text-emerald-400` : { color: textPrimary }
+          tw`text-sm font-black tracking-tight`,
+          isTransfer
+            ? { color: textSecondary }
+            : isIncome 
+            ? tw`text-emerald-500 dark:text-emerald-400` 
+            : { color: textPrimary }
         ]}>
-          {isIncome ? '+' : '-'}₱{Math.abs(item.amount).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+          {isTransfer ? '' : isIncome ? '+' : '-'}{formatCurrency(Math.abs(item.amount))}
         </Text>
       </TouchableOpacity>
     );
   };
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218]`}>
-      <View style={tw`px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800`}>
-        <Text style={[tw`text-3xl font-black mb-6`, { color: textPrimary }]}>Transactions</Text>
-        <View style={tw`flex-row space-x-2 gap-2`}>
-          {['all', 'income', 'expense', 'loan'].map((f) => (
+    <SafeAreaView style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218] relative`} edges={['top']}>
+      {/* Top Header & Search */}
+      <View style={tw`px-6 pt-4 pb-3 border-b border-slate-100/80 dark:border-slate-800/80`}>
+        <View style={tw`flex-row items-center justify-between mb-4`}>
+          <Text style={[tw`text-3xl font-black tracking-tight`, { color: textPrimary }]}>
+            Transactions
+          </Text>
+          <TouchableOpacity
+            onPress={() => bottomSheetRef.current?.openScanner()}
+            style={[
+              tw`flex-row items-center px-3.5 py-2 rounded-2xl border min-h-[40px]`,
+              { backgroundColor: `${accentColor}15`, borderColor: `${accentColor}30` }
+            ]}
+            accessibilityLabel="Scan Receipt"
+          >
+            <Camera size={16} color={accentColor} style={tw`mr-1.5`} />
+            <Text style={[tw`text-xs font-bold`, { color: accentColor }]}>Scan</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Real-time Search Input */}
+        <View style={tw`flex-row items-center bg-[#F3EDF7] dark:bg-[#211F26] px-3.5 py-2.5 rounded-2xl mb-4 border border-slate-200/50 dark:border-slate-800 min-h-[48px]`}>
+          <Search size={18} color={textMuted} style={tw`mr-2.5`} />
+          <TextInput
+            style={[tw`flex-1 text-sm font-semibold`, { color: textPrimary }]}
+            placeholder="Search by note, description, or category..."
+            placeholderTextColor={textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} style={tw`p-1 min-h-[32px] justify-center`}>
+              <X size={16} color={textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Filter Chips (Minimum 44px Touch Targets) */}
+        <View style={tw`flex-row gap-2`}>
+          {(['all', 'income', 'expense', 'loan'] as const).map(f => (
             <TouchableOpacity
               key={f}
-              onPress={() => setFilter(f as any)}
+              onPress={() => setFilter(f)}
               style={[
-                tw`px-4 py-2 rounded-full`,
+                tw`px-4 py-2.5 rounded-full min-h-[40px] justify-center`,
                 filter === f 
                   ? [{ backgroundColor: accentColor }] 
-                  : tw`bg-[#F3EDF7] dark:bg-[#211F26]`
+                  : tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200/40 dark:border-slate-800`
               ]}
             >
               <Text style={[tw`font-bold capitalize text-xs tracking-wide`, { color: filter === f ? textOnAccent : textSecondary }]}>
@@ -295,395 +192,48 @@ export default function TransactionsScreen() {
         </View>
       </View>
 
+      {/* Transaction List with Empty State */}
       <View style={tw`flex-1 px-6 pt-2`}>
         <FlashList
-          data={filteredData}
+          data={allData}
+          estimatedItemSize={76}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={tw`pb-8`}
+          contentContainerStyle={tw`pb-24 pt-1`}
+          ListEmptyComponent={() => (
+            <View style={tw`items-center justify-center py-20 px-4`}>
+              <View style={tw`w-16 h-16 rounded-full bg-[#F3EDF7] dark:bg-[#211F26] items-center justify-center mb-4`}>
+                <Inbox size={28} color={textMuted} />
+              </View>
+              <Text style={[tw`font-bold text-base mb-1`, { color: textPrimary }]}>
+                {searchQuery ? 'No matching transactions' : 'No transactions found'}
+              </Text>
+              <Text style={[tw`text-xs text-center max-w-xs leading-5`, { color: textMuted }]}>
+                {searchQuery 
+                  ? `No transactions matched "${searchQuery}". Try another keyword.`
+                  : 'Start tracking your spending by adding your first transaction below.'}
+              </Text>
+            </View>
+          )}
         />
       </View>
 
-      {/* Edit Transaction Bottom Sheet */}
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={-1}
-        snapPoints={['92%']}
-        enablePanDownToClose
-        activeOffsetX={[-999, 999]}
-        activeOffsetY={[-5, 5]}
-        backdropComponent={(props) => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />}
-        backgroundStyle={{ backgroundColor: isDark ? '#141218' : '#FEF7FF', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}
-        handleIndicatorStyle={{ backgroundColor: isDark ? '#334155' : '#cbd5e1' }}
+      {/* Floating Action Button (FAB) on Transactions Tab */}
+      <TouchableOpacity
+        style={[
+          tw`absolute bottom-6 right-6 w-16 h-16 rounded-full shadow-xl min-h-[48px] min-w-[48px]`, 
+          { elevation: 10, shadowColor: accentColor }
+        ]}
+        onPress={() => bottomSheetRef.current?.openAdd(filter === 'income' ? 'income' : filter === 'loan' ? 'loan' : 'expense')}
+        activeOpacity={0.85}
       >
-        <BottomSheetView style={tw`flex-1 px-6 pt-2 pb-6`}>
-          
-          {/* 3-Way Segmented Control */}
-          <View style={tw`flex-row bg-[#F3EDF7] dark:bg-[#211F26] rounded-2xl p-1 mb-4`}>
-            <TouchableOpacity 
-              onPress={() => handleTypeChange('expense')} 
-              style={tw`flex-1 py-2 rounded-xl items-center ${type === 'expense' ? 'bg-[#ECE6F0] dark:bg-[#2B2930] shadow-sm' : ''}`}
-            >
-              <Text style={tw`font-bold text-sm ${type === 'expense' ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'}`}>Expense</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={() => handleTypeChange('income')} 
-              style={tw`flex-1 py-2 rounded-xl items-center ${type === 'income' ? 'bg-[#ECE6F0] dark:bg-[#2B2930] shadow-sm' : ''}`}
-            >
-              <Text style={tw`font-bold text-sm ${type === 'income' ? 'text-emerald-500' : 'text-slate-500 dark:text-slate-400'}`}>Income</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={() => handleTypeChange('loan')} 
-              style={tw`flex-1 py-2 rounded-xl items-center ${type === 'loan' ? 'bg-[#ECE6F0] dark:bg-[#2B2930] shadow-sm' : ''}`}
-            >
-              <Text style={tw`font-bold text-sm ${type === 'loan' ? 'text-amber-500' : 'text-slate-500 dark:text-slate-400'}`}>Loan</Text>
-            </TouchableOpacity>
-          </View>
+        <LinearGradient colors={[palette.light, palette.dark]} style={tw`w-full h-full rounded-full items-center justify-center`}>
+          <Plus color="#fff" size={28} />
+        </LinearGradient>
+      </TouchableOpacity>
 
-          {/* If Loan, Direction Selector */}
-          {type === 'loan' && (
-            <View style={tw`flex-row bg-[#F3EDF7] dark:bg-[#211F26] rounded-xl p-1 mb-3`}>
-              <TouchableOpacity 
-                onPress={() => setLoanDirection('borrowed')} 
-                style={tw`flex-1 py-1.5 rounded-lg items-center ${loanDirection === 'borrowed' ? 'bg-amber-500 shadow-sm' : ''}`}
-              >
-                <Text style={tw`font-bold text-xs ${loanDirection === 'borrowed' ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`}>
-                  + Borrowed (Inflow)
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => setLoanDirection('repaid')} 
-                style={tw`flex-1 py-1.5 rounded-lg items-center ${loanDirection === 'repaid' ? 'bg-amber-500 shadow-sm' : ''}`}
-              >
-                <Text style={tw`font-bold text-xs ${loanDirection === 'repaid' ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`}>
-                  - Repayment / Lent
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Balanced Amount & Currency Display */}
-          <View style={tw`items-center justify-center my-2`}>
-            {currentMathResult !== null && (
-              <Text style={tw`text-xs font-bold text-blue-500 mb-1`}>
-                = ₱{currentMathResult.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-              </Text>
-            )}
-            <View style={tw`flex-row items-center justify-center`}>
-              <Text style={[tw`text-3xl font-black mr-1.5`, { color: textMuted }]}>₱</Text>
-              <Text style={[tw`text-5xl font-black tracking-tight`, { color: textPrimary }]} numberOfLines={1}>
-                {amount}
-              </Text>
-            </View>
-          </View>
-
-          {/* Date Chips Row */}
-          <View style={tw`flex-row items-center gap-2 mb-3`}>
-            <TouchableOpacity 
-              onPress={() => setShowDatePicker(true)}
-              style={tw`flex-row items-center bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-full`}
-            >
-              <Calendar size={14} color="#64748b" style={tw`mr-1.5`} />
-              <Text style={[tw`text-xs font-bold`, { color: textPrimary }]}>
-                {formatDateLabel(selectedDate)}
-              </Text>
-            </TouchableOpacity>
-
-            {type === 'loan' && (
-              <TouchableOpacity 
-                onPress={() => setShowDueDatePicker(true)}
-                style={tw`flex-row items-center bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-3 py-1.5 rounded-full`}
-              >
-                <Clock size={14} color="#f59e0b" style={tw`mr-1.5`} />
-                <Text style={tw`text-xs font-bold text-amber-700 dark:text-amber-400`}>
-                  {loanDueDate ? `Due: ${formatDateLabel(loanDueDate)}` : 'Set Due Date'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Payment Account Selector */}
-          <View style={tw`mb-2`}>
-            <Text style={[tw`text-[11px] font-bold mb-1 uppercase tracking-wider`, { color: textMuted }]}>Account / Payment Method</Text>
-            <GestureScrollView 
-              horizontal 
-              nestedScrollEnabled={true} 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={tw`flex-row gap-2 pr-4`}
-            >
-              {accounts.map(acc => {
-                const isSelected = selectedAccountId === acc.id;
-                return (
-                  <TouchableOpacity
-                    key={acc.id}
-                    onPress={() => setSelectedAccountId(acc.id)}
-                    style={[
-                      tw`flex-row items-center border px-3 py-1.5 rounded-xl`,
-                      isSelected 
-                        ? [{ backgroundColor: accentColor, borderColor: accentColor }] 
-                        : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-200 dark:border-slate-800`
-                    ]}
-                  >
-                    {acc.type === 'cash' ? <Wallet size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
-                     acc.type === 'ewallet' ? <Smartphone size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
-                     acc.type === 'credit' ? <CreditCard size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} /> :
-                     <Building2 size={14} color={isSelected ? textOnAccent : '#64748b'} style={tw`mr-1.5`} />}
-                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? textOnAccent : textSecondary }]}>
-                      {acc.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </GestureScrollView>
-          </View>
-
-          {/* Categories Selector with Smooth Horizontal Scrolling Fix */}
-          <View style={tw`mb-3`}>
-            <Text style={[tw`text-[11px] font-bold mb-1 uppercase tracking-wider`, { color: textMuted }]}>Category</Text>
-            <GestureScrollView 
-              horizontal 
-              nestedScrollEnabled={true} 
-              showsHorizontalScrollIndicator={false} 
-              contentContainerStyle={tw`flex-row gap-2 pr-6`}
-            >
-              {activeCategories.map((cat) => {
-                const IconComp = IconMap[cat.icon] || Tag;
-                const isSelected = selectedCategory === cat.name;
-                return (
-                  <TouchableOpacity 
-                    key={cat.id} 
-                    onPress={() => setSelectedCategory(cat.name)} 
-                    style={[
-                      tw`flex-row items-center border px-3.5 py-1.5 rounded-full`,
-                      isSelected 
-                        ? { backgroundColor: cat.color, borderColor: cat.color } 
-                        : { backgroundColor: isDark ? '#211F26' : '#f8fafc', borderColor: isDark ? '#334155' : '#e2e8f0' }
-                    ]}
-                  >
-                    {isSelected ? (
-                      <Check size={14} color="#fff" style={tw`mr-1.5`} />
-                    ) : (
-                      <IconComp size={14} color={cat.color} style={tw`mr-1.5`} />
-                    )}
-                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? '#fff' : textSecondary }]}>
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </GestureScrollView>
-          </View>
-
-          {/* Note Input */}
-          <TextInput 
-            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26]/50 border border-slate-100 dark:border-slate-800 px-4 py-2.5 rounded-xl text-sm font-semibold mb-2`, { color: textPrimary }]} 
-            placeholderTextColor="#64748b" 
-            placeholder="Note / Description" 
-            value={title} 
-            onChangeText={setTitle} 
-          />
-
-          {/* Collapsible Keypad */}
-          {!isKeyboardVisible ? (
-            <View style={tw`mt-auto gap-2`}>
-              {[
-                ['1', '2', '3', '+'],
-                ['4', '5', '6', '-'],
-                ['7', '8', '9', 'del'],
-                ['.', '0', '=', 'C']
-              ].map((row, i) => (
-                <View key={i} style={tw`flex-row justify-between gap-2`}>
-                  {row.map((key) => {
-                    const isOp = key === '+' || key === '-' || key === '=';
-                    return (
-                      <TouchableOpacity 
-                        key={key} 
-                        onPress={() => handleKeyPress(key)} 
-                        style={[
-                          tw`flex-1 h-13 rounded-2xl items-center justify-center border`,
-                          isOp 
-                            ? [{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}35` }] 
-                            : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-100 dark:border-slate-800`
-                        ]}
-                      >
-                        {key === 'del' ? (
-                          <Delete color="#94a3b8" size={20} />
-                        ) : (
-                          <Text style={[tw`text-xl font-bold`, isOp ? { color: accentColor } : { color: textPrimary }]}>
-                            {key}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ))}
-
-              <View style={tw`flex-row gap-2 mt-1`}>
-                <TouchableOpacity 
-                  onPress={handleDelete} 
-                  style={tw`flex-1 bg-rose-50 dark:bg-rose-500/10 py-3.5 rounded-xl items-center border border-rose-200 dark:border-rose-500/20`}
-                >
-                  <Text style={tw`text-rose-500 font-bold text-sm`}>Delete</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={handleUpdate} 
-                  style={[tw`flex-2 py-3.5 rounded-xl items-center shadow-md`, { backgroundColor: accentColor }]}
-                >
-                  <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Save Changes</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <View style={tw`mt-auto pt-2`}>
-              <TouchableOpacity 
-                onPress={() => Keyboard.dismiss()} 
-                style={[tw`w-full py-3.5 rounded-xl items-center shadow-md`, { backgroundColor: accentColor }]}
-              >
-                <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Done Typing</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-        </BottomSheetView>
-      </BottomSheet>
-
-      {/* Date Pickers */}
-      <Modal visible={showDatePicker} transparent animationType="fade">
-        <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
-          <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
-            <Text style={[tw`text-lg font-bold mb-4`, { color: textPrimary }]}>Select Transaction Date</Text>
-            
-            <View style={tw`gap-2 mb-4`}>
-              <TouchableOpacity 
-                onPress={() => { setSelectedDate(new Date().toISOString()); setShowDatePicker(false); }}
-                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
-              >
-                <Text style={[tw`font-bold`, { color: textPrimary }]}>Today</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                onPress={() => { 
-                  const d = new Date(); 
-                  d.setDate(d.getDate() - 1); 
-                  setSelectedDate(d.toISOString()); 
-                  setShowDatePicker(false); 
-                }}
-                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
-              >
-                <Text style={[tw`font-bold`, { color: textPrimary }]}>Yesterday</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput 
-              style={[tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold mb-4`, { color: textPrimary }]}
-              placeholder="Or enter YYYY-MM-DD"
-              placeholderTextColor="#64748b"
-              value={customDateInput}
-              onChangeText={setCustomDateInput}
-            />
-
-            <View style={tw`flex-row gap-2`}>
-              <TouchableOpacity onPress={() => setShowDatePicker(false)} style={tw`flex-1 p-3 rounded-xl items-center`}>
-                <Text style={[tw`font-bold`, { color: textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => {
-                  if (customDateInput) {
-                    const parsed = new Date(customDateInput);
-                    if (!isNaN(parsed.getTime())) {
-                      setSelectedDate(parsed.toISOString());
-                    }
-                  }
-                  setShowDatePicker(false);
-                  setCustomDateInput('');
-                }} 
-                style={[tw`flex-1 p-3 rounded-xl items-center shadow-sm`, { backgroundColor: accentColor }]}
-              >
-                <Text style={[tw`font-bold`, { color: textOnAccent }]}>Apply</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Due Date Modal */}
-      <Modal visible={showDueDatePicker} transparent animationType="fade">
-        <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
-          <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
-            <Text style={[tw`text-lg font-bold mb-2`, { color: textPrimary }]}>Loan Repayment Due Date</Text>
-            <Text style={[tw`text-xs mb-4`, { color: textMuted }]}>Set when this loan is scheduled to be paid.</Text>
-            
-            <View style={tw`gap-2 mb-4`}>
-              <TouchableOpacity 
-                onPress={() => { 
-                  const d = new Date(); 
-                  d.setDate(d.getDate() + 7); 
-                  setLoanDueDate(d.toISOString()); 
-                  setShowDueDatePicker(false); 
-                }}
-                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
-              >
-                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 1 Week</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                onPress={() => { 
-                  const d = new Date(); 
-                  d.setDate(d.getDate() + 15); 
-                  setLoanDueDate(d.toISOString()); 
-                  setShowDueDatePicker(false); 
-                }}
-                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
-              >
-                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 15 Days (Next Payday)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                onPress={() => { 
-                  const d = new Date(); 
-                  d.setDate(d.getDate() + 30); 
-                  setLoanDueDate(d.toISOString()); 
-                  setShowDueDatePicker(false); 
-                }}
-                style={tw`p-3.5 rounded-xl bg-[#F3EDF7] dark:bg-[#2B2930]`}
-              >
-                <Text style={[tw`font-bold`, { color: textPrimary }]}>In 30 Days (Next Month)</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput 
-              style={[tw`bg-[#F3EDF7] dark:bg-[#2B2930] p-3.5 rounded-xl font-semibold mb-4`, { color: textPrimary }]}
-              placeholder="Or enter YYYY-MM-DD"
-              placeholderTextColor="#64748b"
-              value={customDateInput}
-              onChangeText={setCustomDateInput}
-            />
-
-            <View style={tw`flex-row gap-2`}>
-              <TouchableOpacity onPress={() => setShowDueDatePicker(false)} style={tw`flex-1 p-3 rounded-xl items-center`}>
-                <Text style={[tw`font-bold`, { color: textSecondary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={() => {
-                  if (customDateInput) {
-                    const parsed = new Date(customDateInput);
-                    if (!isNaN(parsed.getTime())) {
-                      setLoanDueDate(parsed.toISOString());
-                    }
-                  }
-                  setShowDueDatePicker(false);
-                  setCustomDateInput('');
-                }} 
-                style={tw`flex-1 bg-amber-500 p-3 rounded-xl items-center`}
-              >
-                <Text style={tw`text-white font-bold`}>Save Due Date</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+      {/* Shared Transaction Entry Bottom Sheet */}
+      <TransactionBottomSheet ref={bottomSheetRef} onSuccess={fetchData} />
     </SafeAreaView>
   );
 }

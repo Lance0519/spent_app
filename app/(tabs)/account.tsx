@@ -69,6 +69,7 @@ import {
 } from '../../db/database';
 import { scheduleDailyReminder } from '../../services/NotificationService';
 import { useTheme, ACCENT_PALETTES, AccentPaletteKey } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 
 const SUPPORTED_CURRENCIES = [
   { code: 'PHP', symbol: '₱', name: 'Philippine Peso' },
@@ -83,9 +84,23 @@ const SUPPORTED_CURRENCIES = [
 
 export default function AccountScreen() {
   const router = useRouter();
+  const { lockApp, exitSession } = useAuth();
   const [colorScheme, toggleColorScheme, setColorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
-  const { accentKey, accentColor, setAccentColor, palette, textPrimary, textSecondary, textMuted, textOnAccent } = useTheme();
+  const { 
+    accentKey, 
+    accentColor, 
+    setAccentColor, 
+    palette, 
+    textPrimary, 
+    textSecondary, 
+    textMuted, 
+    textOnAccent,
+    currency,
+    currencySymbol,
+    formatCurrency,
+    setCurrency
+  } = useTheme();
 
   // Profile & Preferences State
   const [profile, setProfile] = useState<UserProfile>({ 
@@ -192,8 +207,8 @@ export default function AccountScreen() {
   };
 
   // Immediate App Lock
-  const handleLockNow = async () => {
-    router.replace('/');
+  const handleLockNow = () => {
+    lockApp();
   };
 
   // Toggle Privacy Mode (Default Hide Balances)
@@ -206,6 +221,7 @@ export default function AccountScreen() {
 
   // Currency Selection
   const handleSelectCurrency = (currencyCode: string) => {
+    setCurrency(currencyCode);
     updateUserProfile(undefined, undefined, currencyCode);
     setProfile(prev => ({ ...prev, currency: currencyCode }));
     setActiveModal(null);
@@ -283,7 +299,7 @@ export default function AccountScreen() {
     setTransferNotes('');
     setActiveModal(null);
     reloadData();
-    Alert.alert('Success', `Transferred ${getCurrencySymbol()}${amt.toLocaleString()} successfully.`);
+    Alert.alert('Success', `Transferred ${formatCurrency(amt)} successfully.`);
   };
 
   // Export CSV
@@ -452,10 +468,7 @@ export default function AccountScreen() {
     );
   };
 
-  const getCurrencySymbol = () => {
-    const found = SUPPORTED_CURRENCIES.find(c => c.code === profile.currency);
-    return found ? found.symbol : '₱';
-  };
+  const getCurrencySymbol = () => currencySymbol;
 
   const getAccountIcon = (type: string) => {
     switch(type) {
@@ -536,8 +549,8 @@ export default function AccountScreen() {
             </View>
             <Text style={tw`text-2xl font-black text-white tracking-tight`}>
               {showNetWorth 
-                ? `${getCurrencySymbol()}${totalNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
-                : `${getCurrencySymbol()}** ***.**`}
+                ? formatCurrency(totalNetWorth) 
+                : `${currencySymbol}** ***.**`}
             </Text>
           </View>
 
@@ -547,7 +560,7 @@ export default function AccountScreen() {
               onPress={() => setActiveModal('currency')}
               style={tw`bg-white/20 px-2.5 py-1 rounded-full border border-white/40`}
             >
-              <Text style={tw`text-xs font-bold text-white uppercase`}>{profile.currency || 'PHP'}</Text>
+              <Text style={tw`text-xs font-bold text-white uppercase`}>{currency}</Text>
             </TouchableOpacity>
 
             {/* Accent Palette Indicator */}
@@ -563,12 +576,12 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Wallets & Core Assets
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
           
           {/* Manage Accounts & Wallets */}
           <TouchableOpacity 
             onPress={() => setActiveModal('accounts')} 
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center flex-1`}>
               <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3`}>
@@ -587,7 +600,7 @@ export default function AccountScreen() {
           {/* Inter-Account Transfer */}
           <TouchableOpacity 
             onPress={() => setActiveModal('transfer')} 
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3`}>
@@ -601,7 +614,7 @@ export default function AccountScreen() {
           {/* Manage Categories */}
           <TouchableOpacity 
             onPress={() => router.push('/categories')} 
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-purple-50 dark:bg-purple-500/10 rounded-full items-center justify-center mr-3`}>
@@ -618,7 +631,7 @@ export default function AccountScreen() {
           {/* Savings Goals */}
           <TouchableOpacity 
             onPress={() => router.push('/budgets')} 
-            style={tw`flex-row items-center justify-between p-3.5`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-amber-50 dark:bg-amber-500/10 rounded-full items-center justify-center mr-3`}>
@@ -634,11 +647,11 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Reports & Planning
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
           
           <TouchableOpacity 
             onPress={() => router.push('/analytics')} 
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-teal-50 dark:bg-teal-500/10 rounded-full items-center justify-center mr-3`}>
@@ -651,7 +664,7 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={() => router.push('/reminders')} 
-            style={tw`flex-row items-center justify-between p-3.5`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-orange-50 dark:bg-orange-500/10 rounded-full items-center justify-center mr-3`}>
@@ -667,7 +680,7 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Appearance & Accent
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-2xl p-3.5 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-3.5 mb-5 border border-slate-100 dark:border-slate-800`}>
           
           {/* Accent Color Palette Picker */}
           <View style={tw`mb-4`}>
@@ -705,9 +718,9 @@ export default function AccountScreen() {
           </View>
 
           {/* Dark Mode */}
-          <View style={tw`flex-row items-center justify-between py-2 border-t border-slate-100 dark:border-slate-800/60`}>
+          <View style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-slate-100 dark:border-slate-800/60`}>
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center mr-3`}>
                 {isDark ? <Moon color="#64748b" size={18} /> : <Sun color="#64748b" size={18} />}
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Dark Mode</Text>
@@ -723,26 +736,26 @@ export default function AccountScreen() {
           {/* Base Currency */}
           <TouchableOpacity 
             onPress={() => setActiveModal('currency')}
-            style={tw`flex-row items-center justify-between py-2 border-t border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
-                <Text style={[tw`font-black text-sm`, { color: textPrimary }]}>{getCurrencySymbol()}</Text>
+              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center mr-3`}>
+                <Text style={[tw`font-black text-sm`, { color: textPrimary }]}>{currencySymbol}</Text>
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Base Currency</Text>
             </View>
             <View style={tw`flex-row items-center`}>
               <Text style={[tw`text-xs font-semibold mr-2`, { color: textSecondary }]}>
-                {profile.currency || 'PHP'} ({getCurrencySymbol()})
+                {currency} ({currencySymbol})
               </Text>
               <ChevronRight color={textMuted} size={18} />
             </View>
           </TouchableOpacity>
 
           {/* Privacy Mode (Default Hide Balances) */}
-          <View style={tw`flex-row items-center justify-between py-2 border-t border-slate-100 dark:border-slate-800/60`}>
+          <View style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-slate-100 dark:border-slate-800/60`}>
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center mr-3`}>
                 <EyeOff color="#64748b" size={18} />
               </View>
               <View>
@@ -763,9 +776,9 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Security & Notifications
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
           
-          <View style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}>
+          <View style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}>
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3`}>
                 <Shield color="#3b82f6" size={18} />
@@ -785,7 +798,7 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={handleLockNow}
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-amber-50 dark:bg-amber-500/10 rounded-full items-center justify-center mr-3`}>
@@ -796,7 +809,7 @@ export default function AccountScreen() {
             <ChevronRight color={textMuted} size={18} />
           </TouchableOpacity>
 
-          <View style={tw`flex-row items-center justify-between p-3.5`}>
+          <View style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}>
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3`}>
                 <Bell color="#10b981" size={18} />
@@ -819,11 +832,11 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Data Vault & Export
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
           
           <TouchableOpacity 
             onPress={handleExportCSV} 
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3`}>
@@ -839,7 +852,7 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={handleExportJSON} 
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3`}>
@@ -852,7 +865,7 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={handleImportJSON} 
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-teal-50 dark:bg-teal-500/10 rounded-full items-center justify-center mr-3`}>
@@ -865,7 +878,7 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={handleWipeData} 
-            style={tw`flex-row items-center justify-between p-3.5`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-rose-50 dark:bg-rose-500/10 rounded-full items-center justify-center mr-3`}>
@@ -881,11 +894,11 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Help & Information
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-2xl p-1 mb-6 border border-slate-100 dark:border-slate-800`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-6 border border-slate-100 dark:border-slate-800`}>
           
           <TouchableOpacity 
             onPress={() => setActiveModal('faq')}
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3`}>
@@ -898,7 +911,7 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={() => Linking.openURL('mailto:justinelance0067@gmail.com?subject=SPENT%20Support')}
-            style={tw`flex-row items-center justify-between p-3.5 border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
@@ -913,10 +926,10 @@ export default function AccountScreen() {
             onPress={() => {
               Alert.alert(
                 'Data Privacy & Security Guarantee',
-                'Your financial data is 100% private and offline-first.\n\nAll accounts, transactions, and budgets are strictly stored locally on your device via an encrypted SQLite database.\n\nWe do NOT collect, transmit, or monetize your information on remote servers.'
+                'Your financial data is 100% private and offline-first.\n\nAll accounts, transactions, and budgets are strictly stored locally within your device\'s private, sandboxed SQLite storage.\n\nWe do NOT collect, transmit, or monetize your information on remote servers.'
               );
             }}
-            style={tw`flex-row items-center justify-between p-3.5`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}
           >
             <View style={tw`flex-row items-center`}>
               <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
@@ -930,14 +943,14 @@ export default function AccountScreen() {
 
         {/* App Version Info */}
         <View style={tw`items-center mb-6`}>
-          <Text style={[tw`text-xs font-bold`, { color: textMuted }]}>SPENT v1.0.0 (Build 2026.09.05)</Text>
-          <Text style={[tw`text-[11px] mt-0.5`, { color: textMuted }]}>Offline-First • Encrypted SQLite</Text>
+          <Text style={[tw`text-xs font-bold`, { color: textMuted }]}>SPENT v1.0.1 (Build 2026.09.09)</Text>
+          <Text style={[tw`text-[11px] mt-0.5`, { color: textMuted }]}>Offline-First • Private Sandboxed SQLite</Text>
         </View>
 
         {/* Log Out Button */}
         <TouchableOpacity 
-          style={tw`flex-row items-center justify-center py-3.5 bg-rose-50 dark:bg-rose-500/10 rounded-2xl border border-rose-100 dark:border-rose-500/20`}
-          onPress={() => router.replace('/')}
+          style={tw`flex-row items-center justify-center py-3.5 min-h-[48px] bg-rose-50 dark:bg-rose-500/10 rounded-2xl border border-rose-100 dark:border-rose-500/20`}
+          onPress={() => exitSession()}
         >
           <LogOut color="#ef4444" size={18} />
           <Text style={tw`text-rose-500 dark:text-rose-400 font-bold ml-2 text-sm`}>Lock / Exit Session</Text>
@@ -959,13 +972,13 @@ export default function AccountScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Add / Edit Form */}
-              <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] p-4 rounded-2xl mb-5 border border-slate-100 dark:border-slate-800`}>
+              <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] p-4 rounded-2xl mb-5 border border-slate-100 dark:border-slate-800`}>
                 <Text style={[tw`text-sm font-bold mb-2.5`, { color: textPrimary }]}>
                   {editingAccId ? 'Edit Account' : 'Add New Account'}
                 </Text>
 
                 <TextInput
-                  style={[tw`bg-[#F3EDF7] dark:bg-[#211F26] px-4 py-2.5 rounded-xl text-sm font-semibold mb-2.5 border border-slate-200 dark:border-slate-800`, { color: textPrimary }]}
+                  style={[tw`bg-[#F3EDF7] dark:bg-[#2B2930] px-4 py-3 rounded-xl text-sm font-semibold mb-2.5 min-h-[48px] border border-slate-200 dark:border-slate-800`, { color: textPrimary }]}
                   placeholder="Account Name (e.g. Maya, BPI, PayPal)"
                   placeholderTextColor={textMuted}
                   value={newAccName}
@@ -979,10 +992,10 @@ export default function AccountScreen() {
                       key={t}
                       onPress={() => setNewAccType(t)}
                       style={[
-                        tw`flex-1 py-2 rounded-xl items-center border`,
+                        tw`flex-1 py-2.5 min-h-[44px] justify-center rounded-xl items-center border`,
                         newAccType === t 
                           ? [{ backgroundColor: accentColor, borderColor: accentColor }]
-                          : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-200 dark:border-slate-800`
+                          : tw`bg-[#F3EDF7] dark:bg-[#2B2930] border-slate-200 dark:border-slate-800`
                       ]}
                     >
                       <Text style={[tw`text-xs font-bold capitalize`, { color: newAccType === t ? textOnAccent : textSecondary }]}>
@@ -993,7 +1006,7 @@ export default function AccountScreen() {
                 </View>
 
                 <TextInput
-                  style={[tw`bg-[#F3EDF7] dark:bg-[#211F26] px-4 py-2.5 rounded-xl text-sm font-semibold mb-3 border border-slate-200 dark:border-slate-800`, { color: textPrimary }]}
+                  style={[tw`bg-[#F3EDF7] dark:bg-[#2B2930] px-4 py-3 rounded-xl text-sm font-semibold mb-3 min-h-[48px] border border-slate-200 dark:border-slate-800`, { color: textPrimary }]}
                   placeholder="Starting Balance"
                   placeholderTextColor={textMuted}
                   keyboardType="numeric"
@@ -1009,14 +1022,14 @@ export default function AccountScreen() {
                         setNewAccName('');
                         setNewAccBalance('');
                       }} 
-                      style={tw`flex-1 py-3 bg-[#F3EDF7] dark:bg-[#211F26] rounded-xl items-center`}
+                      style={tw`flex-1 py-3.5 min-h-[48px] justify-center bg-[#F3EDF7] dark:bg-[#2B2930] rounded-xl items-center`}
                     >
                       <Text style={[tw`font-bold text-sm`, { color: textSecondary }]}>Cancel</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity 
                     onPress={handleSaveAccount} 
-                    style={[tw`flex-1 py-3 rounded-xl items-center shadow-md`, { backgroundColor: accentColor }]}
+                    style={[tw`flex-1 py-3.5 min-h-[48px] justify-center rounded-xl items-center shadow-md`, { backgroundColor: accentColor }]}
                   >
                     <Text style={[tw`font-bold text-sm`, { color: textOnAccent }]}>
                       {editingAccId ? 'Update Account' : 'Add Account'}
@@ -1030,24 +1043,24 @@ export default function AccountScreen() {
               {accounts.map(acc => {
                 const IconComp = getAccountIcon(acc.type);
                 return (
-                  <View key={acc.id} style={tw`flex-row items-center justify-between p-3 bg-[#F4EFF4] dark:bg-[#49454F] rounded-xl mb-2.5 border border-slate-100 dark:border-slate-800`}>
+                  <View key={acc.id} style={tw`flex-row items-center justify-between p-3.5 bg-[#F4EFF4] dark:bg-[#211F26] rounded-xl mb-2.5 border border-slate-100 dark:border-slate-800`}>
                     <View style={tw`flex-row items-center flex-1`}>
-                      <View style={tw`w-10 h-10 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
+                      <View style={tw`w-10 h-10 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center mr-3`}>
                         <IconComp size={18} color={accentColor} />
                       </View>
                       <View style={tw`flex-1`}>
                         <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>{acc.name}</Text>
                         <Text style={[tw`text-xs font-semibold`, { color: textSecondary }]}>
-                          {getCurrencySymbol()}{(acc.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {formatCurrency(acc.balance || 0)}
                         </Text>
                       </View>
                     </View>
 
                     <View style={tw`flex-row gap-2`}>
-                      <TouchableOpacity onPress={() => handleStartEditAccount(acc)} style={tw`p-2 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full`}>
+                      <TouchableOpacity onPress={() => handleStartEditAccount(acc)} style={tw`w-10 h-10 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center`}>
                         <Edit2 size={16} color={textSecondary} />
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleDeleteAccount(acc.id, acc.name)} style={tw`p-2 bg-rose-50 dark:bg-rose-500/10 rounded-full`}>
+                      <TouchableOpacity onPress={() => handleDeleteAccount(acc.id, acc.name)} style={tw`w-10 h-10 bg-rose-50 dark:bg-rose-500/10 rounded-full items-center justify-center`}>
                         <Trash2 size={16} color="#f43f5e" />
                       </TouchableOpacity>
                     </View>
@@ -1080,14 +1093,14 @@ export default function AccountScreen() {
                       key={acc.id}
                       onPress={() => setTransferFromId(acc.id)}
                       style={[
-                        tw`px-4 py-2.5 rounded-xl border`,
+                        tw`px-4 py-2.5 min-h-[44px] justify-center rounded-xl border`,
                         transferFromId === acc.id 
                           ? [{ backgroundColor: accentColor, borderColor: accentColor }]
-                          : tw`bg-[#F4EFF4] dark:bg-[#49454F] border-slate-200 dark:border-slate-800`
+                          : tw`bg-[#F4EFF4] dark:bg-[#211F26] border-slate-200 dark:border-slate-800`
                       ]}
                     >
                       <Text style={[tw`text-xs font-bold`, { color: transferFromId === acc.id ? textOnAccent : textSecondary }]}>
-                        {acc.name} ({getCurrencySymbol()}{acc.balance.toLocaleString()})
+                        {acc.name} ({formatCurrency(acc.balance || 0)})
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -1103,14 +1116,14 @@ export default function AccountScreen() {
                       key={acc.id}
                       onPress={() => setTransferToId(acc.id)}
                       style={[
-                        tw`px-4 py-2.5 rounded-xl border`,
+                        tw`px-4 py-2.5 min-h-[44px] justify-center rounded-xl border`,
                         transferToId === acc.id 
                           ? [{ backgroundColor: accentColor, borderColor: accentColor }]
-                          : tw`bg-[#F4EFF4] dark:bg-[#49454F] border-slate-200 dark:border-slate-800`
+                          : tw`bg-[#F4EFF4] dark:bg-[#211F26] border-slate-200 dark:border-slate-800`
                       ]}
                     >
                       <Text style={[tw`text-xs font-bold`, { color: transferToId === acc.id ? textOnAccent : textSecondary }]}>
-                        {acc.name} ({getCurrencySymbol()}{acc.balance.toLocaleString()})
+                        {acc.name} ({formatCurrency(acc.balance || 0)})
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -1120,7 +1133,7 @@ export default function AccountScreen() {
               {/* Amount */}
               <Text style={[tw`text-xs font-bold uppercase tracking-wider mb-1.5`, { color: textMuted }]}>Amount</Text>
               <TextInput
-                style={[tw`bg-[#F4EFF4] dark:bg-[#49454F] px-4 py-3 rounded-2xl text-base font-bold mb-3 border border-slate-200 dark:border-slate-800`, { color: textPrimary }]}
+                style={[tw`bg-[#F4EFF4] dark:bg-[#211F26] px-4 py-3 min-h-[48px] rounded-2xl text-base font-bold mb-3 border border-slate-200 dark:border-slate-800`, { color: textPrimary }]}
                 placeholder={`0.00`}
                 placeholderTextColor={textMuted}
                 keyboardType="numeric"
@@ -1131,7 +1144,7 @@ export default function AccountScreen() {
               {/* Notes */}
               <Text style={[tw`text-xs font-bold uppercase tracking-wider mb-1.5`, { color: textMuted }]}>Notes (Optional)</Text>
               <TextInput
-                style={[tw`bg-[#F4EFF4] dark:bg-[#49454F] px-4 py-3 rounded-2xl text-sm font-semibold mb-5 border border-slate-200 dark:border-slate-800`, { color: textPrimary }]}
+                style={[tw`bg-[#F4EFF4] dark:bg-[#211F26] px-4 py-3 min-h-[48px] rounded-2xl text-sm font-semibold mb-5 border border-slate-200 dark:border-slate-800`, { color: textPrimary }]}
                 placeholder="e.g. Bank to GCash Cash-In"
                 placeholderTextColor={textMuted}
                 value={transferNotes}
@@ -1140,7 +1153,7 @@ export default function AccountScreen() {
 
               <TouchableOpacity 
                 onPress={handleExecuteTransfer}
-                style={[tw`py-4 rounded-2xl items-center justify-center shadow-lg`, { backgroundColor: accentColor }]}
+                style={[tw`py-4 min-h-[48px] rounded-2xl items-center justify-center shadow-lg`, { backgroundColor: accentColor }]}
               >
                 <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Confirm Transfer</Text>
               </TouchableOpacity>
@@ -1168,14 +1181,14 @@ export default function AccountScreen() {
                     key={curr.code}
                     onPress={() => handleSelectCurrency(curr.code)}
                     style={[
-                      tw`flex-row items-center justify-between p-4 rounded-2xl mb-2.5 border`,
+                      tw`flex-row items-center justify-between p-4 min-h-[48px] rounded-2xl mb-2.5 border`,
                       isSelected 
                         ? [{ borderColor: accentColor, backgroundColor: `${accentColor}15` }] 
-                        : tw`bg-[#F4EFF4] dark:bg-[#49454F] border-slate-100 dark:border-slate-800`
+                        : tw`bg-[#F4EFF4] dark:bg-[#211F26] border-slate-100 dark:border-slate-800`
                     ]}
                   >
                     <View style={tw`flex-row items-center`}>
-                      <View style={tw`w-10 h-10 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
+                      <View style={tw`w-10 h-10 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center mr-3`}>
                         <Text style={[tw`font-black text-base`, { color: textPrimary }]}>{curr.symbol}</Text>
                       </View>
                       <View>
@@ -1205,7 +1218,7 @@ export default function AccountScreen() {
 
             <ScrollView showsVerticalScrollIndicator={false}>
               
-              <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] p-4 rounded-2xl mb-3 border border-slate-100 dark:border-slate-800`}>
+              <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] p-4 rounded-2xl mb-3 border border-slate-100 dark:border-slate-800`}>
                 <View style={tw`flex-row items-center mb-1.5`}>
                   <CreditCard size={18} color={accentColor} style={tw`mr-2`} />
                   <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>
@@ -1218,7 +1231,7 @@ export default function AccountScreen() {
                 </Text>
               </View>
 
-              <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] p-4 rounded-2xl mb-3 border border-slate-100 dark:border-slate-800`}>
+              <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] p-4 rounded-2xl mb-3 border border-slate-100 dark:border-slate-800`}>
                 <View style={tw`flex-row items-center mb-1.5`}>
                   <ArrowRightLeft size={18} color={accentColor} style={tw`mr-2`} />
                   <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>
@@ -1230,7 +1243,7 @@ export default function AccountScreen() {
                 </Text>
               </View>
 
-              <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] p-4 rounded-2xl mb-3 border border-slate-100 dark:border-slate-800`}>
+              <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] p-4 rounded-2xl mb-3 border border-slate-100 dark:border-slate-800`}>
                 <View style={tw`flex-row items-center mb-1.5`}>
                   <Target size={18} color={accentColor} style={tw`mr-2`} />
                   <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>
@@ -1242,7 +1255,7 @@ export default function AccountScreen() {
                 </Text>
               </View>
 
-              <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] p-4 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800`}>
+              <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] p-4 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800`}>
                 <View style={tw`flex-row items-center mb-1.5`}>
                   <Lock size={18} color={accentColor} style={tw`mr-2`} />
                   <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>
@@ -1256,7 +1269,7 @@ export default function AccountScreen() {
 
               <TouchableOpacity 
                 onPress={() => setActiveModal(null)}
-                style={[tw`py-3.5 rounded-2xl items-center shadow-md`, { backgroundColor: accentColor }]}
+                style={[tw`py-3.5 min-h-[48px] justify-center rounded-2xl items-center shadow-md`, { backgroundColor: accentColor }]}
               >
                 <Text style={[tw`font-bold text-sm`, { color: textOnAccent }]}>Got it!</Text>
               </TouchableOpacity>

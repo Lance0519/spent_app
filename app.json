@@ -2,7 +2,7 @@
   "expo": {
     "name": "SPENT",
     "slug": "finance-manager-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.justine.spent",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "SPENT needs Face ID to secure your financial data."
+        "NSFaceIDUsageDescription": "SPENT needs Face ID to secure your financial data.",
+        "NSCameraUsageDescription": "SPENT needs camera access to scan physical receipts and bills."
       }
     },
     "android": {
@@ -27,7 +28,8 @@
         "USE_BIOMETRIC",
         "USE_FINGERPRINT",
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
@@ -44,6 +46,18 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow SPENT App to use Face ID."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SPENT to access your camera to scan receipts."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SPENT to access your photos to scan receipt images."
         }
       ]
     ],
