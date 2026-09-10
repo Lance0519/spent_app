@@ -488,7 +488,7 @@ export function extractLineItems(blocks: MLKitTextBlock[]): ReceiptItem[] {
     if (isNonItemLine(text)) continue;
 
     // Pattern: Description followed by a price at the end
-    const match = text.match(/^(.*?)\s+(?:[₱\$\s]|PHP|Php)?((?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?))$/i);
+    const match = text.match(/^(.{1,150}?)\s+(?:[₱\$\s]|PHP|Php)?((?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?))$/i);
     if (match) {
       const desc = match[1].trim().replace(/^[\d\s*xX.\-]+/, '').trim();
       const valRes = validateAndParseCentavoAmount(match[2]);

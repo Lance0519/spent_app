@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,10 +7,12 @@ import {
   ActivityIndicator, 
   Alert, 
   Platform,
-  NativeModules 
+  NativeModules,
+  Linking
 } from 'react-native';
 import { CameraView, useCameraPermissions, CameraType } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import * as Haptics from 'expo-haptics';
 import { X, Zap, ZapOff, FlipHorizontal, Image as ImageIcon, Camera, AlertCircle, Info } from 'lucide-react-native';
@@ -37,12 +39,21 @@ export const ReceiptCameraScanner: React.FC<Props> = ({
   const [statusMessage, setStatusMessage] = useState('Reading receipt with on-device ML Kit...');
 
   const cameraRef = useRef<CameraView>(null);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, [visible]);
 
   // Check if native ML Kit module is linked (false in standard Expo Go)
   const isNativeOCRSupported = Boolean(NativeModules.TextRecognition);
 
   const processImageUri = async (imageUri: string) => {
     try {
+      if (!isMounted.current) return;
       setIsProcessing(true);
       setStatusMessage('Reading receipt with on-device ML Kit...');
 
@@ -89,6 +100,7 @@ PLEASE PAY ₱ 307493`;
           formattedNotes: generateFormattedNotes('STARBUCKS COFFEE', todayIso, 380.00, demoItems, currencySymbol)
         };
 
+        if (!isMounted.current) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           'Select Sample (Expo Go Demo)',
@@ -97,6 +109,7 @@ PLEASE PAY ₱ 307493`;
             {
               text: 'Meralco Utility Bill (Test Fix)',
               onPress: () => {
+                if (!isMounted.current) return;
                 onScanSuccess(meralcoParsed);
                 onClose();
               }
@@ -104,6 +117,7 @@ PLEASE PAY ₱ 307493`;
             {
               text: 'Starbucks Receipt',
               onPress: () => {
+                if (!isMounted.current) return;
                 onScanSuccess(starbucksParsed);
                 onClose();
               }
@@ -111,7 +125,10 @@ PLEASE PAY ₱ 307493`;
             {
               text: 'Cancel',
               style: 'cancel',
-              onPress: () => onClose()
+              onPress: () => {
+                if (!isMounted.current) return;
+                onClose();
+              }
             }
           ]
         );
@@ -120,6 +137,8 @@ PLEASE PAY ₱ 307493`;
 
       // Execute on-device offline ML Kit text recognition
       const ocrResult = await TextRecognition.recognize(imageUri);
+
+      if (!isMounted.current) return;
 
       if (!ocrResult || !ocrResult.text || ocrResult.text.trim().length === 0) {
         Alert.alert(
@@ -130,6 +149,11 @@ PLEASE PAY ₱ 307493`;
       }
 
       setStatusMessage('Extracting merchant, date, and item breakdown...');
+      
+      // Yield to UI thread to allow spinner to render before heavy parsing blocks the thread
+      await new Promise(resolve => setTimeout(resolve, 50));
+      if (!isMounted.current) return;
+
       const parsed = parseReceipt(ocrResult, currencySymbol);
 
       if (parsed.items.length === 0 && parsed.totalAmount === 0) {
@@ -140,6 +164,7 @@ PLEASE PAY ₱ 307493`;
             {
               text: 'OK',
               onPress: () => {
+                if (!isMounted.current) return;
                 onScanSuccess(parsed);
                 onClose();
               }
@@ -154,12 +179,18 @@ PLEASE PAY ₱ 307493`;
       onClose();
     } catch (error) {
       console.error('Receipt recognition error:', error);
+      if (!isMounted.current) return;
       Alert.alert(
         'Scan Failed',
         `An error occurred while recognizing the receipt: ${(error as Error).message || 'Unknown error'}`
       );
     } finally {
-      setIsProcessing(false);
+      if (isMounted.current) {
+        setIsProcessing(false);
+      }
+      try {
+        await FileSystem.deleteAsync(imageUri, { idempotent: true });
+      } catch (e) {}
     }
   };
 
@@ -228,10 +259,18 @@ PLEASE PAY ₱ 307493`;
             </Text>
 
             <TouchableOpacity
-              onPress={requestPermission}
+              onPress={() => {
+                if (permission?.canAskAgain) {
+                  requestPermission();
+                } else {
+                  Linking.openSettings();
+                }
+              }}
               style={[tw`w-full py-4 rounded-2xl items-center mb-3 min-h-[48px] justify-center`, { backgroundColor: accentColor }]}
             >
-              <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Grant Camera Permission</Text>
+              <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>
+                {permission?.canAskAgain ? 'Grant Camera Permission' : 'Open Settings'}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
