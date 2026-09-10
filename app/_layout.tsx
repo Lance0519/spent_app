@@ -2,10 +2,10 @@ import { Stack, ErrorBoundary } from 'expo-router';
 export { ErrorBoundary };
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { Text, View, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { Text, View, TouchableOpacity, Platform, BackHandler } from 'react-native';
 import tw, { useDeviceContext, useAppColorScheme } from 'twrnc';
-import { Shield, Lock, LogOut } from 'lucide-react-native';
+import { Shield, LogOut } from 'lucide-react-native';
 import { ThemeProvider, DarkTheme, DefaultTheme } from 'expo-router/react-navigation';
 import { CustomThemeProvider, useTheme } from '../context/ThemeContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
@@ -14,7 +14,21 @@ function RootNavigation() {
   const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
   const { accentColor, textPrimary, textSecondary, textOnAccent } = useTheme();
-  const { isLocked, authChecked, unlockApp, exitSession } = useAuth();
+  const { isLocked, authChecked, unlockApp, exitSession, exitApp } = useAuth();
+
+  // On Android, pressing hardware back button on the lock screen exits the app
+  useEffect(() => {
+    if (!isLocked) return;
+    const backAction = () => {
+      if (Platform.OS === 'android') {
+        BackHandler.exitApp();
+        return true;
+      }
+      return false;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [isLocked]);
 
   if (!authChecked || isLocked) {
     return (
@@ -35,13 +49,23 @@ function RootNavigation() {
           <Text style={[tw`font-bold text-lg`, { color: textOnAccent }]}>Unlock SPENT</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          onPress={exitSession} 
-          style={tw`flex-row items-center justify-center py-3.5 px-6 rounded-2xl border border-rose-200 dark:border-rose-500/20 w-full min-h-[48px] bg-rose-50/50 dark:bg-rose-500/10`}
-        >
-          <LogOut size={16} color="#ef4444" style={tw`mr-2`} />
-          <Text style={tw`text-rose-500 font-bold text-sm`}>Log Out / Exit Session</Text>
-        </TouchableOpacity>
+        {Platform.OS === 'android' ? (
+          <TouchableOpacity 
+            onPress={exitApp} 
+            style={tw`flex-row items-center justify-center py-3.5 px-6 rounded-2xl border border-rose-200 dark:border-rose-500/20 w-full min-h-[48px] bg-rose-50/50 dark:bg-rose-500/10`}
+          >
+            <LogOut size={16} color="#ef4444" style={tw`mr-2`} />
+            <Text style={tw`text-rose-500 font-bold text-sm`}>Exit App</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            onPress={exitSession} 
+            style={tw`flex-row items-center justify-center py-3.5 px-6 rounded-2xl border border-rose-200 dark:border-rose-500/20 w-full min-h-[48px] bg-rose-50/50 dark:bg-rose-500/10`}
+          >
+            <LogOut size={16} color="#ef4444" style={tw`mr-2`} />
+            <Text style={tw`text-rose-500 font-bold text-sm`}>Log Out Session</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }

@@ -947,13 +947,15 @@ export default function AccountScreen() {
           <Text style={[tw`text-[11px] mt-0.5`, { color: textMuted }]}>Offline-First • Private Sandboxed SQLite</Text>
         </View>
 
-        {/* Log Out Button */}
+        {/* Log Out / Exit Button */}
         <TouchableOpacity 
           style={tw`flex-row items-center justify-center py-3.5 min-h-[48px] bg-rose-50 dark:bg-rose-500/10 rounded-2xl border border-rose-100 dark:border-rose-500/20`}
           onPress={() => exitSession()}
         >
           <LogOut color="#ef4444" size={18} />
-          <Text style={tw`text-rose-500 dark:text-rose-400 font-bold ml-2 text-sm`}>Lock / Exit Session</Text>
+          <Text style={tw`text-rose-500 dark:text-rose-400 font-bold ml-2 text-sm`}>
+            {Platform.OS === 'android' ? 'Exit App / Log Out Session' : 'Lock / Log Out Session'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 

@@ -1,9 +1,10 @@
-import { View, Text, TouchableOpacity, Image, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Alert, Platform, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import tw, { useAppColorScheme } from 'twrnc';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TrendingDown, Target, ShieldCheck } from 'lucide-react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { FinanceService } from '../services/FinanceService';
 import { useAuth } from '../context/AuthContext';
 import React, { useEffect } from 'react';
@@ -23,9 +24,46 @@ export default function WelcomeScreen() {
     } catch(e) {}
   }, [router]);
 
-  const handleStart = () => {
-    loginUser();
-    router.replace('/(tabs)');
+  // Handle Android back button on WelcomeScreen to cleanly exit the app
+  useEffect(() => {
+    const backAction = () => {
+      if (Platform.OS === 'android') {
+        BackHandler.exitApp();
+        return true;
+      }
+      return false;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, []);
+
+  const handleStart = async () => {
+    try {
+      const status = FinanceService.getSessionStatus();
+      const profile = FinanceService.getUserProfile();
+
+      // If existing user has biometrics enabled, require authentication before logging in
+      if (status.hasCompletedOnboarding && profile.biometrics_enabled === 1) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+        if (hasHardware && isEnrolled) {
+          const res = await LocalAuthentication.authenticateAsync({
+            promptMessage: 'Authenticate to access SPENT',
+            fallbackLabel: 'Use Passcode',
+          });
+          if (!res.success) {
+            Alert.alert('Authentication Required', 'Biometric authentication or passcode is required to log in.');
+            return;
+          }
+        }
+      }
+
+      loginUser();
+      router.replace('/(tabs)');
+    } catch {
+      loginUser();
+      router.replace('/(tabs)');
+    }
   };
 
   const showLegalNotice = () => {

@@ -373,6 +373,14 @@ const initDatabase = (database: SQLite.SQLiteDatabase) => {
     );
   }
 
+  // Auto-migrate existing users on app update: if records exist, preserve onboarding state
+  try {
+    const txCount = database.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM transactions');
+    if (txCount && txCount.count > 0) {
+      database.runSync('UPDATE user_profile SET has_completed_onboarding = 1, is_logged_in = 1 WHERE id = 1');
+    }
+  } catch(e) {}
+
   // Ensure Default Accounts
   const ensureAccount = (name: string, type: string) => {
     try {
@@ -1090,13 +1098,21 @@ export const getSessionStatus = (): { isLoggedIn: boolean; hasCompletedOnboardin
     const row = db.getFirstSync<{ is_logged_in?: number; has_completed_onboarding?: number; session_token?: string }>(
       'SELECT is_logged_in, has_completed_onboarding, session_token FROM user_profile WHERE id = 1'
     );
+    let hasTransactions = false;
+    try {
+      const txCount = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM transactions');
+      hasTransactions = (txCount?.count ?? 0) > 0;
+    } catch {}
+
+    const completed = (row?.has_completed_onboarding ?? 0) === 1 || hasTransactions;
+
     return {
       isLoggedIn: (row?.is_logged_in ?? 1) === 1,
-      hasCompletedOnboarding: (row?.has_completed_onboarding ?? 0) === 1,
+      hasCompletedOnboarding: completed,
       sessionToken: row?.session_token || null
     };
   } catch {
-    return { isLoggedIn: true, hasCompletedOnboarding: false, sessionToken: null };
+    return { isLoggedIn: true, hasCompletedOnboarding: true, sessionToken: null };
   }
 };
 
