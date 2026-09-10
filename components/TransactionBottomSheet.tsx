@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useMemo, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, Modal, Keyboard } from 'react-native';
 import { ScrollView as GestureScrollView } from 'react-native-gesture-handler';
 import BottomSheet, { BottomSheetView, BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
@@ -59,6 +59,18 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
   const [breakdownItems, setBreakdownItems] = useState<ReceiptItem[]>([]);
 
+  // Dynamically derive total price from breakdown items using reduce (Single Source of Truth)
+  const derivedBreakdownTotal = useMemo(() => {
+    return breakdownItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+  }, [breakdownItems]);
+
+  // Immutable update handler feeding derived total directly into the transaction form
+  const handleUpdateBreakdownItems = useCallback((updatedItems: ReceiptItem[]) => {
+    setBreakdownItems(updatedItems);
+    const newTotal = updatedItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+    setAmount(newTotal.toFixed(2));
+  }, []);
+
   // App data caches
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -108,7 +120,11 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
     if (parsed.merchant) {
       setTitle(parsed.merchant);
     }
-    if (parsed.totalAmount > 0) {
+    if (parsed.items && parsed.items.length > 0) {
+      setBreakdownItems(parsed.items);
+      const calculatedTotal = parsed.items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+      setAmount(calculatedTotal.toFixed(2));
+    } else if (parsed.totalAmount > 0) {
       setAmount(parsed.totalAmount.toFixed(2));
     }
     if (parsed.date) {
@@ -119,9 +135,6 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
       }
     }
     setType('expense');
-    if (parsed.items && parsed.items.length > 0) {
-      setBreakdownItems(parsed.items);
-    }
 
     // Auto-match category based on merchant name
     if (parsed.merchant) {
@@ -257,7 +270,7 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
 
   const handleSave = () => {
     triggerHaptic();
-    const finalAmount = evaluateMath(amount);
+    const finalAmount = breakdownItems.length > 0 ? derivedBreakdownTotal : evaluateMath(amount);
     if (finalAmount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter an amount greater than 0.');
       return;
@@ -557,7 +570,7 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
             <View style={tw`flex-row items-center justify-center`}>
               <Text style={[tw`text-3xl font-black mr-1.5`, { color: textMuted }]}>{currencySymbol}</Text>
               <Text style={[tw`text-5xl font-black tracking-tight`, { color: textPrimary }]} numberOfLines={1}>
-                {amount}
+                {breakdownItems.length > 0 ? derivedBreakdownTotal.toFixed(2) : amount}
               </Text>
             </View>
           </View>
@@ -685,8 +698,8 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
           {/* Itemized Receipt Breakdown */}
           <ReceiptBreakdownList
             items={breakdownItems}
-            onUpdateItems={setBreakdownItems}
-            billTotal={evaluateMath(amount)}
+            onUpdateItems={handleUpdateBreakdownItems}
+            billTotal={derivedBreakdownTotal}
           />
 
           {/* Keypad & Save */}

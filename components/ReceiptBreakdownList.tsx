@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Trash2, Plus, Edit2, Check, ShoppingBag } from 'lucide-react-native';
 import tw from 'twrnc';
@@ -8,7 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 interface Props {
   items: ReceiptItem[];
   onUpdateItems: (items: ReceiptItem[]) => void;
-  billTotal: number;
+  billTotal?: number;
 }
 
 export const ReceiptBreakdownList: React.FC<Props> = ({
@@ -16,13 +16,18 @@ export const ReceiptBreakdownList: React.FC<Props> = ({
   onUpdateItems,
   billTotal,
 }) => {
-  const { accentColor, textPrimary, textSecondary, textMuted, textOnAccent, currencySymbol, isDark } = useTheme();
+  const { accentColor, textPrimary, textSecondary, textMuted, textOnAccent, currencySymbol } = useTheme();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDesc, setEditDesc] = useState('');
   const [editPrice, setEditPrice] = useState('');
 
-  const itemsSum = items.reduce((sum, item) => sum + (item.price || 0), 0);
-  const isSumMatching = Math.abs(itemsSum - billTotal) < 0.05;
+  // Single Source of Truth: Dynamically derive total price using reduce
+  const itemsTotal = useMemo(() => {
+    return items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+  }, [items]);
+
+  const targetTotal = billTotal !== undefined ? billTotal : itemsTotal;
+  const isSumMatching = Math.abs(itemsTotal - targetTotal) < 0.05;
 
   const handleStartEdit = (item: ReceiptItem) => {
     setEditingId(item.id);
@@ -30,6 +35,10 @@ export const ReceiptBreakdownList: React.FC<Props> = ({
     setEditPrice(item.price.toFixed(2));
   };
 
+  /**
+   * Immutable update handler using map:
+   * Returns a new array with the target item updated, triggering a React state update.
+   */
   const handleSaveEdit = (id: string) => {
     if (!editDesc.trim()) {
       Alert.alert('Invalid Item', 'Item description cannot be empty.');
@@ -41,6 +50,7 @@ export const ReceiptBreakdownList: React.FC<Props> = ({
       return;
     }
 
+    // Immutable update using .map()
     const updated = items.map(item => {
       if (item.id === id) {
         return { ...item, description: editDesc.trim(), price: parsedPrice };
@@ -185,11 +195,11 @@ export const ReceiptBreakdownList: React.FC<Props> = ({
         })}
       </View>
 
-      {/* Comparison Footer */}
+      {/* Comparison & Real-Time Total Footer */}
       <View style={tw`mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-800 flex-row items-center justify-between`}>
         <View>
           <Text style={[tw`text-[11px] font-semibold`, { color: textMuted }]}>
-            Breakdown Sum: <Text style={[tw`font-bold`, { color: textPrimary }]}>{currencySymbol}{itemsSum.toFixed(2)}</Text>
+            Breakdown Total: <Text style={[tw`font-bold`, { color: textPrimary }]}>{currencySymbol}{itemsTotal.toFixed(2)}</Text>
           </Text>
         </View>
 
@@ -201,7 +211,7 @@ export const ReceiptBreakdownList: React.FC<Props> = ({
             tw`text-[11px] font-bold`,
             isSumMatching ? tw`text-emerald-600 dark:text-emerald-400` : tw`text-amber-600 dark:text-amber-400`
           ]}>
-            {isSumMatching ? 'Matches Total' : `Diff: ${currencySymbol}${Math.abs(itemsSum - billTotal).toFixed(2)}`}
+            {isSumMatching ? 'Live Total Synced' : `Diff: ${currencySymbol}${Math.abs(itemsTotal - targetTotal).toFixed(2)}`}
           </Text>
         </View>
       </View>

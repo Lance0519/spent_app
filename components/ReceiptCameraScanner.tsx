@@ -49,14 +49,38 @@ export const ReceiptCameraScanner: React.FC<Props> = ({
       // If running inside standard Expo Go, native ML Kit C++/Java libraries are not compiled in
       if (!isNativeOCRSupported) {
         setStatusMessage('Expo Go detected: Simulating receipt parsing...');
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Sample Meralco bill with missing decimal points caused by scanner hardware limitations
+        const sampleMeralcoOcr = `MERALCO
+MANILA ELECTRIC COMPANY
+Account No: 1234-5678-9012
+Bill Date: 2026-08-15
+Due Date: 2026-09-02
+
+BREAKDOWN OF ELECTRICITY CHARGES
+Generation 173598
+Transmission 30154
+System Loss 16047
+Distribution (Meralco) 41862
+Senior Citizen 2
+Government Taxes 31577
+Universal Charges 6657
+FIT-All (Renewable) 4163
+GEA-All (Renewable) 768
+Lifeline 207
+Other Charges 2458
+
+PLEASE PAY ₱ 307493`;
+
+        const meralcoParsed = parseReceipt({ text: sampleMeralcoOcr, blocks: [] }, currencySymbol);
 
         const demoItems = [
           { id: `item_1_${Date.now()}`, description: 'Caffè Latte Grande', price: 195.00 },
           { id: `item_2_${Date.now()}`, description: 'Caramel Macchiato Grande', price: 185.00 },
         ];
         const todayIso = new Date().toISOString().split('T')[0];
-        const demoParsed: ParsedReceipt = {
+        const starbucksParsed: ParsedReceipt = {
           merchant: 'STARBUCKS COFFEE',
           date: todayIso,
           totalAmount: 380.00,
@@ -67,15 +91,27 @@ export const ReceiptCameraScanner: React.FC<Props> = ({
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
-          'Expo Go Demo Mode',
-          'Offline Google ML Kit requires native Android binaries not bundled in Expo Go.\n\nA sample receipt was loaded so you can test the itemized editor and SQLite saving.\n\nTo scan real physical receipts with live ML Kit, run:\nnpx expo run:android',
+          'Select Sample (Expo Go Demo)',
+          'Choose a bill type to test OCR parsing and real-time state synchronization:\n\n• Meralco Bill tests the centavo fallback (missing decimals fixed) and real-time itemized price updates.\n• For physical camera scanning with live Google ML Kit, run: npx expo run:android',
           [
             {
-              text: 'Continue with Sample',
+              text: 'Meralco Utility Bill (Test Fix)',
               onPress: () => {
-                onScanSuccess(demoParsed);
+                onScanSuccess(meralcoParsed);
                 onClose();
               }
+            },
+            {
+              text: 'Starbucks Receipt',
+              onPress: () => {
+                onScanSuccess(starbucksParsed);
+                onClose();
+              }
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => onClose()
             }
           ]
         );
