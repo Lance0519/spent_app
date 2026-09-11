@@ -189,6 +189,18 @@ const createMockDB = () => {
         if (acc) { acc.name = params[0]; acc.type = params[1]; acc.balance = params[2]; acc.currency = params[3]; }
       } else if (query.includes('DELETE FROM accounts')) {
         mockDb.accounts = mockDb.accounts.filter(a => a.id !== params[0]);
+      } else if (query.includes('INSERT INTO reminders')) {
+        mockDb.reminders.push({ id: Date.now(), title: params[0], due_date: params[1] || null, is_completed: 0 });
+      } else if (query.includes('UPDATE reminders SET is_completed')) {
+        const id = params[1];
+        const r = mockDb.reminders.find(rem => rem.id === id);
+        if (r) r.is_completed = params[0];
+      } else if (query.includes('UPDATE reminders SET title')) {
+        const id = params[2];
+        const r = mockDb.reminders.find(rem => rem.id === id);
+        if (r) { r.title = params[0]; r.due_date = params[1] || null; }
+      } else if (query.includes('DELETE FROM reminders')) {
+        mockDb.reminders = mockDb.reminders.filter(rem => rem.id !== params[0]);
       }
     },
     getFirstSync: (query: string, params: any[] = []) => {
@@ -363,6 +375,17 @@ const initDatabase = (database: SQLite.SQLiteDatabase) => {
 
   try {
     database.runSync("ALTER TABLE user_profile ADD COLUMN session_token TEXT");
+  } catch(e) {}
+
+  try {
+    database.runSync(`
+      CREATE TABLE IF NOT EXISTS reminders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        due_date TEXT,
+        is_completed INTEGER DEFAULT 0
+      )
+    `);
   } catch(e) {}
 
   const userCount = database.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM user_profile`);
@@ -808,6 +831,11 @@ export const getReminders = (): Reminder[] => {
 export const addReminder = (title: string, due_date: string | null) => {
   const db = getDB();
   db.runSync(`INSERT INTO reminders (title, due_date) VALUES (?, ?)`, [title, due_date]);
+};
+
+export const updateReminder = (id: number, title: string, due_date: string | null) => {
+  const db = getDB();
+  db.runSync(`UPDATE reminders SET title = ?, due_date = ? WHERE id = ?`, [title, due_date, id]);
 };
 
 export const toggleReminder = (id: number, is_completed: number) => {

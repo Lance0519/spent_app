@@ -1,12 +1,22 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, ScrollView, Keyboard } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  TextInput, 
+  ScrollView, 
+  Keyboard, 
+  Modal, 
+  KeyboardAvoidingView, 
+  Platform,
+  TouchableWithoutFeedback 
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
-import { ChevronLeft, Plus, CheckCircle2, Circle, Trash2, Calendar, X } from 'lucide-react-native';
+import { ChevronLeft, Plus, CheckCircle2, Circle, Trash2, Calendar, X, Clock, Edit2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useFocusEffect } from 'expo-router';
 import tw, { useAppColorScheme } from 'twrnc';
-import { getReminders, addReminder, toggleReminder, deleteReminder, Reminder } from '../db/database';
+import { getReminders, addReminder, updateReminder, toggleReminder, deleteReminder, Reminder } from '../db/database';
 import { useTheme } from '../context/ThemeContext';
 
 export default function RemindersScreen() {
@@ -14,19 +24,22 @@ export default function RemindersScreen() {
   const [colorScheme] = useAppColorScheme(tw);
   const isDark = colorScheme === 'dark';
   const { accentColor, textPrimary, textSecondary, textMuted, textOnAccent } = useTheme();
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [newTitle, setNewTitle] = useState('');
-  const [newDate, setNewDate] = useState('');
   
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ['60%'], []);
+  // Data State
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  
+  // Modal / Form State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState('');
 
   const fetchReminders = () => {
     try {
       const data = getReminders();
       setReminders(data);
     } catch (e) {
-      console.log(e);
+      console.warn('Failed to load reminders:', e);
     }
   };
 
@@ -40,7 +53,28 @@ export default function RemindersScreen() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {}
-    bottomSheetRef.current?.snapToIndex(0);
+    setEditingReminder(null);
+    setTitle('');
+    setDueDate('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (item: Reminder) => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    setEditingReminder(item);
+    setTitle(item.title);
+    setDueDate(item.due_date || '');
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    Keyboard.dismiss();
+    setIsModalOpen(false);
+    setEditingReminder(null);
+    setTitle('');
+    setDueDate('');
   };
 
   const handleToggle = (item: Reminder) => {
@@ -59,17 +93,29 @@ export default function RemindersScreen() {
     fetchReminders();
   };
 
-  const handleAdd = () => {
-    if (!newTitle.trim()) return;
+  const handleSave = () => {
+    if (!title.trim()) return;
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {}
     Keyboard.dismiss();
-    addReminder(newTitle.trim(), newDate.trim() || null);
-    setNewTitle('');
-    setNewDate('');
-    bottomSheetRef.current?.close();
+    
+    if (editingReminder) {
+      updateReminder(editingReminder.id, title.trim(), dueDate.trim() || null);
+    } else {
+      addReminder(title.trim(), dueDate.trim() || null);
+    }
+    
+    handleCloseModal();
     fetchReminders();
+  };
+
+  // Helper date preset chips
+  const applyPresetDate = (label: string) => {
+    try {
+      Haptics.selectionAsync();
+    } catch {}
+    setDueDate(label);
   };
 
   const pendingReminders = reminders.filter(r => !r.is_completed);
@@ -96,7 +142,7 @@ export default function RemindersScreen() {
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Add Reminder"
-          accessibilityHint="Opens bottom sheet to create a new reminder"
+          accessibilityHint="Opens form to create a new reminder"
           style={[tw`w-11 h-11 items-center justify-center rounded-full`, { backgroundColor: `${accentColor}18` }]}
         >
           <Plus color={accentColor} size={22} />
@@ -111,7 +157,7 @@ export default function RemindersScreen() {
               <Calendar color={accentColor} size={38} />
             </View>
             <Text style={[tw`text-lg font-bold mb-1`, { color: textPrimary }]}>No Reminders Yet</Text>
-            <Text style={[tw`text-sm text-center mb-6 max-w-xs`, { color: textSecondary }]}>
+            <Text style={[tw`text-sm text-center mb-6 max-w-xs leading-relaxed`, { color: textSecondary }]}>
               Keep track of upcoming bills, subscriptions, or financial to-dos.
             </Text>
             <TouchableOpacity
@@ -127,9 +173,12 @@ export default function RemindersScreen() {
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={tw`pb-12`}>
+            {/* Pending Reminders */}
             {pendingReminders.length > 0 && (
               <View style={tw`mb-6`}>
-                <Text style={[tw`text-xs font-bold uppercase tracking-wider mb-3`, { color: textSecondary }]}>Pending</Text>
+                <Text style={[tw`text-xs font-bold uppercase tracking-wider mb-3`, { color: textSecondary }]}>
+                  Pending ({pendingReminders.length})
+                </Text>
                 {pendingReminders.map(item => (
                   <View 
                     key={item.id} 
@@ -139,31 +188,58 @@ export default function RemindersScreen() {
                       style={tw`flex-row items-center flex-1 min-h-[44px]`} 
                       onPress={() => handleToggle(item)}
                       activeOpacity={0.7}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: false }}
+                      accessibilityLabel={`Mark ${item.title} as completed`}
                     >
                       <Circle color={textSecondary} size={22} style={tw`mr-4`} />
-                      <View style={tw`flex-1`}>
+                      <View style={tw`flex-1 mr-2`}>
                         <Text style={[tw`text-base font-bold`, { color: textPrimary }]}>{item.title}</Text>
-                        {item.due_date && <Text style={tw`text-xs font-semibold text-rose-500 dark:text-rose-400 mt-1`}>Due: {item.due_date}</Text>}
+                        {item.due_date && (
+                          <View style={tw`flex-row items-center mt-1`}>
+                            <Clock size={12} color="#f43f5e" style={tw`mr-1`} />
+                            <Text style={tw`text-xs font-semibold text-rose-500 dark:text-rose-400`}>
+                              Due: {item.due_date}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => handleDelete(item.id)} 
-                      style={tw`w-9 h-9 items-center justify-center bg-rose-50 dark:bg-rose-500/10 rounded-full ml-3`}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel="Delete reminder"
-                    >
-                      <Trash2 color="#ef4444" size={16} />
-                    </TouchableOpacity>
+                    
+                    <View style={tw`flex-row items-center gap-1`}>
+                      <TouchableOpacity 
+                        onPress={() => handleOpenEdit(item)}
+                        style={tw`w-9 h-9 items-center justify-center bg-slate-200/60 dark:bg-slate-800 rounded-full`}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit reminder"
+                      >
+                        <Edit2 color={textSecondary} size={15} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                        onPress={() => handleDelete(item.id)} 
+                        style={tw`w-9 h-9 items-center justify-center bg-rose-50 dark:bg-rose-500/10 rounded-full`}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete reminder"
+                      >
+                        <Trash2 color="#ef4444" size={15} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 ))}
               </View>
             )}
 
+            {/* Completed Reminders */}
             {completedReminders.length > 0 && (
               <View style={tw`mb-8`}>
-                <Text style={[tw`text-xs font-bold uppercase tracking-wider mb-3`, { color: textMuted }]}>Completed</Text>
+                <Text style={[tw`text-xs font-bold uppercase tracking-wider mb-3`, { color: textMuted }]}>
+                  Completed ({completedReminders.length})
+                </Text>
                 {completedReminders.map(item => (
                   <View 
                     key={item.id} 
@@ -173,21 +249,30 @@ export default function RemindersScreen() {
                       style={tw`flex-row items-center flex-1 min-h-[44px]`} 
                       onPress={() => handleToggle(item)}
                       activeOpacity={0.7}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: true }}
+                      accessibilityLabel={`Mark ${item.title} as pending`}
                     >
                       <CheckCircle2 color={accentColor} size={22} style={tw`mr-4`} />
-                      <View style={tw`flex-1`}>
+                      <View style={tw`flex-1 mr-2`}>
                         <Text style={[tw`text-base font-bold line-through`, { color: textMuted }]}>{item.title}</Text>
+                        {item.due_date && (
+                          <Text style={[tw`text-xs mt-0.5 line-through`, { color: textMuted }]}>
+                            Due: {item.due_date}
+                          </Text>
+                        )}
                       </View>
                     </TouchableOpacity>
+
                     <TouchableOpacity 
                       onPress={() => handleDelete(item.id)} 
-                      style={tw`w-9 h-9 items-center justify-center bg-[#ECE6F0] dark:bg-[#2B2930] rounded-full ml-3`}
+                      style={tw`w-9 h-9 items-center justify-center bg-[#ECE6F0] dark:bg-[#2B2930] rounded-full`}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       activeOpacity={0.7}
                       accessibilityRole="button"
                       accessibilityLabel="Delete reminder"
                     >
-                      <Trash2 color={textSecondary} size={16} />
+                      <Trash2 color={textSecondary} size={15} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -197,101 +282,153 @@ export default function RemindersScreen() {
         )}
       </View>
 
-      {/* Add Reminder Bottom Sheet */}
-      <BottomSheet
-        ref={bottomSheetRef}
-        index={-1}
-        snapPoints={snapPoints}
-        enableDynamicSizing={false}
-        enablePanDownToClose
-        activeOffsetX={[-999, 999]}
-        activeOffsetY={[-5, 5]}
-        keyboardBehavior="interactive"
-        android_keyboardInputMode="adjustResize"
-        keyboardBlurBehavior="restore"
-        backdropComponent={(props) => (
-          <BottomSheetBackdrop
-            {...props}
-            disappearsOnIndex={-1}
-            appearsOnIndex={0}
-            opacity={0.5}
-            pressBehavior="close"
-          />
-        )}
-        backgroundStyle={{
-          backgroundColor: isDark ? '#141218' : '#FEF7FF',
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-        }}
-        handleIndicatorStyle={{
-          backgroundColor: isDark ? '#334155' : '#cbd5e1',
-        }}
+      {/* Slide-Up Native Modal for Add / Edit Reminder */}
+      <Modal
+        visible={isModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={handleCloseModal}
       >
-        <BottomSheetScrollView
-          contentContainerStyle={tw`px-6 pt-2 pb-10`}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={tw`flex-1 bg-black/50 justify-end`}
         >
-          <View style={tw`flex-row items-center justify-between mb-5`}>
-            <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>New Reminder</Text>
-            <TouchableOpacity
-              onPress={() => {
-                Keyboard.dismiss();
-                bottomSheetRef.current?.close();
-              }}
-              style={tw`p-2 rounded-full bg-[#F3EDF7] dark:bg-[#211F26] min-w-[36px] min-h-[36px] items-center justify-center`}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Close sheet"
-            >
-              <X color={textSecondary} size={18} />
-            </TouchableOpacity>
-          </View>
-          
-          <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Title</Text>
-          <TextInput
+          {/* Backdrop dismiss area */}
+          <TouchableWithoutFeedback onPress={handleCloseModal}>
+            <View style={tw`flex-1`} />
+          </TouchableWithoutFeedback>
+
+          <View 
             style={[
-              tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200/60 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-base font-semibold mb-5 min-h-[48px]`,
-              { color: textPrimary }
+              tw`rounded-t-3xl max-h-[85%] px-6 pt-3 pb-8 border-t border-slate-200/60 dark:border-slate-800 shadow-2xl`,
+              { backgroundColor: isDark ? '#141218' : '#FEF7FF' }
             ]}
-            placeholder="e.g. Pay Electricity Bill"
-            placeholderTextColor={textMuted}
-            value={newTitle}
-            onChangeText={setNewTitle}
-            returnKeyType="next"
-          />
-          
-          <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Due Date (Optional)</Text>
-          <TextInput
-            style={[
-              tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200/60 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-base font-semibold mb-6 min-h-[48px]`,
-              { color: textPrimary }
-            ]}
-            placeholder="e.g. Oct 15 or Next Friday"
-            placeholderTextColor={textMuted}
-            value={newDate}
-            onChangeText={setNewDate}
-            returnKeyType="done"
-            onSubmitEditing={handleAdd}
-          />
-          
-          <TouchableOpacity 
-            onPress={handleAdd} 
-            activeOpacity={0.8}
-            disabled={!newTitle.trim()}
-            style={[
-              tw`w-full py-4 rounded-2xl items-center shadow-md min-h-[48px] justify-center`,
-              { backgroundColor: accentColor },
-              !newTitle.trim() && tw`opacity-50`
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Save reminder"
           >
-            <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Save Reminder</Text>
-          </TouchableOpacity>
-        </BottomSheetScrollView>
-      </BottomSheet>
+            {/* Sheet Drag Indicator */}
+            <View style={tw`items-center py-2 mb-2`}>
+              <View style={[tw`w-12 h-1.5 rounded-full`, { backgroundColor: isDark ? '#334155' : '#cbd5e1' }]} />
+            </View>
+
+            {/* Modal Header */}
+            <View style={tw`flex-row items-center justify-between mb-5`}>
+              <View>
+                <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>
+                  {editingReminder ? 'Edit Reminder' : 'New Reminder'}
+                </Text>
+                <Text style={[tw`text-xs mt-0.5`, { color: textSecondary }]}>
+                  {editingReminder ? 'Update reminder details' : 'Set a reminder for your upcoming expense'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleCloseModal}
+                style={tw`p-2 rounded-full bg-[#F3EDF7] dark:bg-[#211F26] min-w-[36px] min-h-[36px] items-center justify-center`}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Close sheet"
+              >
+                <X color={textSecondary} size={18} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={tw`pb-4`}
+            >
+              {/* Title Input */}
+              <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>
+                Reminder Title *
+              </Text>
+              <TextInput
+                style={[
+                  tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200/60 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-base font-semibold mb-5 min-h-[48px]`,
+                  { color: textPrimary }
+                ]}
+                placeholder="e.g. Pay Electricity Bill, Netflix Renewal"
+                placeholderTextColor={textMuted}
+                value={title}
+                onChangeText={setTitle}
+                autoFocus={true}
+                returnKeyType="next"
+              />
+              
+              {/* Due Date Input */}
+              <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>
+                Due Date (Optional)
+              </Text>
+              <TextInput
+                style={[
+                  tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200/60 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-base font-semibold mb-3 min-h-[48px]`,
+                  { color: textPrimary }
+                ]}
+                placeholder="e.g. Oct 15, Tomorrow, or End of Month"
+                placeholderTextColor={textMuted}
+                value={dueDate}
+                onChangeText={setDueDate}
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
+              />
+
+              {/* Quick Preset Chips */}
+              <View style={tw`flex-row flex-wrap gap-2 mb-6`}>
+                {['Today', 'Tomorrow', 'This Friday', 'End of Month'].map(preset => {
+                  const isSelected = dueDate === preset;
+                  return (
+                    <TouchableOpacity
+                      key={preset}
+                      onPress={() => applyPresetDate(preset)}
+                      style={[
+                        tw`px-3 py-1.5 rounded-xl border min-h-[32px] justify-center`,
+                        isSelected 
+                          ? [{ backgroundColor: `${accentColor}20`, borderColor: accentColor }]
+                          : tw`bg-[#F3EDF7] dark:bg-[#211F26] border-slate-200/60 dark:border-slate-800`
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Text 
+                        style={[
+                          tw`text-xs font-bold`,
+                          isSelected ? { color: accentColor } : { color: textSecondary }
+                        ]}
+                      >
+                        +{preset}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {dueDate ? (
+                  <TouchableOpacity
+                    onPress={() => setDueDate('')}
+                    style={tw`px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 min-h-[32px] justify-center`}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={tw`text-xs font-bold text-rose-500`}>Clear Date</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              
+              {/* Save Button */}
+              <TouchableOpacity 
+                onPress={handleSave} 
+                activeOpacity={0.8}
+                disabled={!title.trim()}
+                style={[
+                  tw`w-full py-4 rounded-2xl items-center shadow-md min-h-[48px] justify-center mb-2`,
+                  { backgroundColor: accentColor },
+                  !title.trim() && tw`opacity-50`
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={editingReminder ? 'Save changes' : 'Save reminder'}
+              >
+                <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>
+                  {editingReminder ? 'Update Reminder' : 'Save Reminder'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
