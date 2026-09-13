@@ -35,6 +35,7 @@ export const ReceiptCameraScanner: React.FC<Props> = ({
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [enableTorch, setEnableTorch] = useState(false);
+  const [receiptMode, setReceiptMode] = useState<'long' | 'standard'>('long');
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Reading receipt with on-device ML Kit...');
 
@@ -100,14 +101,84 @@ PLEASE PAY ₱ 307493`;
           formattedNotes: generateFormattedNotes('STARBUCKS COFFEE', todayIso, 380.00, demoItems, currencySymbol)
         };
 
+        // Sample Savemore supermarket receipt
+        const sampleSavemoreOcr = `Savemore Market
+SANFORD MARKETING CORPORATION
+Savemore Market Camarin Kiko/Monte Heights
+Annex Zone 15 Brgy. 176 1400 Caloocan C
+ity NCR Third Dist. Philippines
+VAT-REG TIN 207-981-175-00075
+SN#683025650502086 MIN#26060108213341569
+Sales Invoice
+SI#0000010434
+PHP
+2 X 61.75
+DwnyFbconPessn6+1 123.50
+2 X 96.00
+ArielPOxB1ch66x6 192.00
+2 X 26.00
+SN Bonus Sponge 52.00
++ CDOulanBrgchs225 67.00
++ MARBY SqdBal1200 64.00
++ CdoldHotdogRg250 62.50
++ YAKULT Light 5s 60.00
+MangTomasLechonSga 42.50
+4 X 25.25
++ NissinHotChsySfd 101.00
++ DatuPutinVilSup 46.50
+MnSitaOyster309x12 73.00
++ BEARBRAND 33Gx8 100.00
+SUPER STIX UBE330G 94.50
+Presto PBtter30x10 70.00
+RebscoWfertme11x20 59.50
+RebiscoWaferTRCray 89.50
+2 X 8.50
+KireiYmyFkSpcyShrn 17.00
+loaddwhtChcof1d65g 19.50
++ SMB BrownSugar1k 73.00
+RGNTTRYAKICHK100G 24.95
+AjiCrspyFryXtrSpcy 14.50
+AjinomotoCrspyMx62 20.00
+AjinomotoBreadSpcy 20.00
+2 X 40.00
++ Argen.Cbef175 G 80.00
+2 X 24.00
++ YT SardTS Inp155 48.00
+BrownieNuttyDlight 94.50
+JJ Piattos 85g 39.50
+LSCheeseCakeBig42g 114.50
+Subtotal 1,862.95
+Discount 0.00
+VAT 0.00
+Total 1,862.95
+Offline BDO Credit 1,862.95
+546497XXXXXX6747
+ISSUER NAME: Offline BDO Credit
+ISSUER ID: 01
+AUTH CODE: 014535
+ITEMS PURCHASED 37
+MEMBER ID: ******3358
+MEMBER NAME: NEU*********
+Vatable Sales 1,663.38`;
+
+        const savemoreParsed = parseReceipt({ text: sampleSavemoreOcr, blocks: [] }, currencySymbol);
+
         if (!isMounted.current) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           'Select Sample (Expo Go Demo)',
-          'Choose a bill type to test OCR parsing and real-time state synchronization:\n\n• Meralco Bill tests the centavo fallback (missing decimals fixed) and real-time itemized price updates.\n• For physical camera scanning with live Google ML Kit, run: npx expo run:android',
+          'Choose a receipt to test OCR parsing and item breakdown:\n\n• Savemore Supermarket tests multi-item grocery parsing, quantity multipliers (2x @ 61.75), and ₱1,862.95 total.\n• Meralco tests utility bill parsing.\n• Starbucks tests compact café receipts.',
           [
             {
-              text: 'Meralco Utility Bill (Test Fix)',
+              text: 'Savemore Grocery Receipt (Test Fix)',
+              onPress: () => {
+                if (!isMounted.current) return;
+                onScanSuccess(savemoreParsed);
+                onClose();
+              }
+            },
+            {
+              text: 'Meralco Utility Bill',
               onPress: () => {
                 if (!isMounted.current) return;
                 onScanSuccess(meralcoParsed);
@@ -158,11 +229,15 @@ PLEASE PAY ₱ 307493`;
 
       if (parsed.items.length === 0 && parsed.totalAmount === 0) {
         Alert.alert(
-          'No Items Detected',
-          'Could not extract items or total from the image. Please verify the receipt details manually.',
+          'Receipt Scan Incomplete',
+          'Could not clearly detect items or total. Would you like to retake with better lighting, or proceed and enter details manually?',
           [
             {
-              text: 'OK',
+              text: 'Retake Photo',
+              style: 'cancel'
+            },
+            {
+              text: 'Enter Manually',
               onPress: () => {
                 if (!isMounted.current) return;
                 onScanSuccess(parsed);
@@ -323,18 +398,49 @@ PLEASE PAY ₱ 307493`;
                   </View>
                 )}
 
+                {/* Receipt Mode Toggle Pill */}
+                <View style={tw`flex-row self-center mt-2 bg-black/60 backdrop-blur-md p-1 rounded-full border border-white/20`}>
+                  <TouchableOpacity
+                    onPress={() => setReceiptMode('long')}
+                    style={[
+                      tw`px-3 py-1 rounded-full`,
+                      receiptMode === 'long' ? { backgroundColor: accentColor } : tw`bg-transparent`
+                    ]}
+                  >
+                    <Text style={[tw`text-[11px] font-bold`, receiptMode === 'long' ? { color: textOnAccent } : tw`text-white/80`]}>
+                      Long / Supermarket
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setReceiptMode('standard')}
+                    style={[
+                      tw`px-3 py-1 rounded-full`,
+                      receiptMode === 'standard' ? { backgroundColor: accentColor } : tw`bg-transparent`
+                    ]}
+                  >
+                    <Text style={[tw`text-[11px] font-bold`, receiptMode === 'standard' ? { color: textOnAccent } : tw`text-white/80`]}>
+                      Standard
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
                 {/* Viewfinder Target Frame */}
-                <View style={tw`items-center justify-center my-auto`}>
-                  <View style={tw`w-[86%] h-96 border-2 border-white/60 rounded-3xl relative overflow-hidden justify-between p-4 bg-black/10`}>
+                <View style={tw`items-center justify-center flex-1 my-2`}>
+                  <View style={[
+                    tw`border-2 border-white/60 rounded-3xl relative overflow-hidden justify-between p-4 bg-black/10`,
+                    receiptMode === 'long' ? tw`w-[88%] h-[92%]` : tw`w-[86%] h-80`
+                  ]}>
                     {/* Corner Guides */}
                     <View style={tw`flex-row justify-between`}>
                       <View style={tw`w-6 h-6 border-t-4 border-l-4 rounded-tl-lg border-white`} />
                       <View style={tw`w-6 h-6 border-t-4 border-r-4 rounded-tr-lg border-white`} />
                     </View>
 
-                    <View style={tw`items-center bg-black/50 px-3 py-1.5 rounded-full self-center`}>
+                    <View style={tw`items-center bg-black/60 px-3.5 py-1.5 rounded-full self-center border border-white/20`}>
                       <Text style={tw`text-white text-xs font-bold tracking-wide`}>
-                        Position receipt inside the frame
+                        {receiptMode === 'long'
+                          ? 'Frame full receipt (header to total)'
+                          : 'Position receipt inside frame'}
                       </Text>
                     </View>
 

@@ -45,7 +45,7 @@ export const ReceiptBreakdownList: React.FC<Props> = ({
       return;
     }
     const parsedPrice = parseFloat(editPrice);
-    if (isNaN(parsedPrice) || parsedPrice < 0) {
+    if (isNaN(parsedPrice)) {
       Alert.alert('Invalid Price', 'Please enter a valid numeric price.');
       return;
     }
@@ -172,8 +172,8 @@ export const ReceiptBreakdownList: React.FC<Props> = ({
               </View>
 
               <View style={tw`flex-row items-center gap-2`}>
-                <Text style={[tw`text-xs font-black mr-1`, { color: textPrimary }]}>
-                  {currencySymbol}{item.price.toFixed(2)}
+                <Text style={[tw`text-xs font-black mr-1`, { color: item.price < 0 ? '#10b981' : textPrimary }]}>
+                  {item.price < 0 ? `-${currencySymbol}${Math.abs(item.price).toFixed(2)}` : `${currencySymbol}${item.price.toFixed(2)}`}
                 </Text>
 
                 <TouchableOpacity 
@@ -199,7 +199,7 @@ export const ReceiptBreakdownList: React.FC<Props> = ({
       <View style={tw`mt-3 pt-2.5 border-t border-slate-200 dark:border-slate-800 flex-row items-center justify-between`}>
         <View>
           <Text style={[tw`text-[11px] font-semibold`, { color: textMuted }]}>
-            Breakdown Total: <Text style={[tw`font-bold`, { color: textPrimary }]}>{currencySymbol}{itemsTotal.toFixed(2)}</Text>
+            Breakdown Total: <Text style={[tw`font-bold`, { color: textPrimary }]}>{itemsTotal < 0 ? `-${currencySymbol}${Math.abs(itemsTotal).toFixed(2)}` : `${currencySymbol}${itemsTotal.toFixed(2)}`}</Text>
           </Text>
         </View>
 

@@ -58,6 +58,7 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
   const [loanDueDate, setLoanDueDate] = useState<string | null>(null);
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
   const [breakdownItems, setBreakdownItems] = useState<ReceiptItem[]>([]);
+  const [scannedBillTotal, setScannedBillTotal] = useState<number | undefined>(undefined);
 
   // Dynamically derive total price from breakdown items using reduce (Single Source of Truth)
   const derivedBreakdownTotal = useMemo(() => {
@@ -114,18 +115,23 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
     setLoanDueDate(null);
     setLoanDirection('borrowed');
     setBreakdownItems([]);
+    setScannedBillTotal(undefined);
   };
 
   const handleScanSuccess = (parsed: ParsedReceipt) => {
     if (parsed.merchant) {
       setTitle(parsed.merchant);
     }
-    if (parsed.items && parsed.items.length > 0) {
-      setBreakdownItems(parsed.items);
+    if (parsed.totalAmount > 0) {
+      setScannedBillTotal(parsed.totalAmount);
+      setAmount(parsed.totalAmount.toFixed(2));
+    } else if (parsed.items && parsed.items.length > 0) {
       const calculatedTotal = parsed.items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
       setAmount(calculatedTotal.toFixed(2));
-    } else if (parsed.totalAmount > 0) {
-      setAmount(parsed.totalAmount.toFixed(2));
+      setScannedBillTotal(calculatedTotal);
+    }
+    if (parsed.items && parsed.items.length > 0) {
+      setBreakdownItems(parsed.items);
     }
     if (parsed.date) {
       try {
@@ -699,7 +705,7 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
           <ReceiptBreakdownList
             items={breakdownItems}
             onUpdateItems={handleUpdateBreakdownItems}
-            billTotal={derivedBreakdownTotal}
+            billTotal={scannedBillTotal !== undefined ? scannedBillTotal : derivedBreakdownTotal}
           />
 
           {/* Keypad & Save */}

@@ -218,10 +218,13 @@ export function validateAndParseCentavoAmount(raw: string): ValidatedAmountResul
     return { amount: 0, rawString: '', hasPeriod: false, wasAdjustedByFallback: false };
   }
 
-  // 1. Strip currency symbols (₱, P, Php, PHP, $), spaces, and non-numeric characters
+  // 1. Check for negative sign or parentheses (e.g. -0.10 or (0.10) for discounts/subsidies)
+  const isNegative = raw.includes('-') || /\(\s*[\d.,]+\s*\)/.test(raw);
+
+  // 2. Strip currency symbols (₱, P, Php, PHP, $), spaces, and non-numeric characters
   const sanitized = raw.replace(/[₱\$\s]|PHP|Php|php/gi, '').trim();
 
-  // 2. Extract contiguous numeric pattern (with optional comma grouping and optional decimal)
+  // 3. Extract contiguous numeric pattern (with optional comma grouping and optional decimal)
   const match = sanitized.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/);
   if (!match) {
     return { amount: 0, rawString: raw, hasPeriod: false, wasAdjustedByFallback: false };
@@ -229,21 +232,26 @@ export function validateAndParseCentavoAmount(raw: string): ValidatedAmountResul
 
   const extractedNumStr = match[0];
 
-  // 3. Validation Step: Check if the extracted number string contains a period
+  // 4. Validation Step: Check if the extracted number string contains a period
   const hasPeriod = extractedNumStr.includes('.');
 
-  // 4. Remove comma thousands separators
+  // 5. Remove comma thousands separators
   const digitsOnlyStr = extractedNumStr.replace(/,/g, '');
   const parsedValue = parseFloat(digitsOnlyStr);
 
-  if (isNaN(parsedValue) || parsedValue <= 0) {
+  if (isNaN(parsedValue)) {
     return { amount: 0, rawString: extractedNumStr, hasPeriod, wasAdjustedByFallback: false };
+  }
+
+  if (parsedValue === 0) {
+    return { amount: 0, rawString: extractedNumStr, hasPeriod: true, wasAdjustedByFallback: false };
   }
 
   if (!hasPeriod) {
     // Hardware limitation fallback:
     // Period is missing; convert string to number and divide by 100 to restore centavo placement.
-    const restoredAmount = Number((parsedValue / 100).toFixed(2));
+    const signedVal = isNegative ? -parsedValue : parsedValue;
+    const restoredAmount = Number((signedVal / 100).toFixed(2));
     return {
       amount: restoredAmount,
       rawString: extractedNumStr,
@@ -252,9 +260,10 @@ export function validateAndParseCentavoAmount(raw: string): ValidatedAmountResul
     };
   }
 
-  // Period is present; format to 2 decimal places
+  // Period is present; format to 2 decimal places with proper sign
+  const signedAmount = isNegative ? -parsedValue : parsedValue;
   return {
-    amount: Number(parsedValue.toFixed(2)),
+    amount: Number(signedAmount.toFixed(2)),
     rawString: extractedNumStr,
     hasPeriod: true,
     wasAdjustedByFallback: false,
@@ -268,6 +277,50 @@ export function parseAmountWithCentavoFallback(raw: string): number {
   return validateAndParseCentavoAmount(raw).amount;
 }
 
+/**
+ * Standard monetary parser for commercial receipts (does not divide by 100).
+ * Handles numbers with or without comma separators and decimal points.
+ * E.g. "1,862.95" -> 1862.95, "52.00" -> 52.00, "20" -> 20.00
+ */
+export function parseCurrencyAmount(raw: string): number {
+  if (!raw || typeof raw !== 'string') return 0;
+  const sanitized = raw.replace(/[₱\$\s]|PHP|Php|php/gi, '').trim();
+  const match = sanitized.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/);
+  if (!match) return 0;
+  const digits = match[0].replace(/,/g, '');
+  const parsed = parseFloat(digits);
+  return isNaN(parsed) || parsed <= 0 ? 0 : Number(parsed.toFixed(2));
+}
+
+/**
+ * Checks whether a line represents a quantity multiplier (e.g. "2 X 61.75", "4 X 25.25", "2 @ 40.00")
+ */
+export function isMultiplierLine(text: string): boolean {
+  return /^\s*\d{1,3}\s*[xX@*]\s*[\d,.]+\s*$/.test(text.trim());
+}
+
+/**
+ * Extracts quantity and unit price from a multiplier line.
+ */
+export function parseMultiplier(text: string): { qty: number; unitPrice: number } | null {
+  const match = text.trim().match(/^(\d{1,3})\s*[xX@*]\s*([\d,.]+)/);
+  if (!match) return null;
+  const qty = parseInt(match[1], 10);
+  const unitPrice = parseCurrencyAmount(match[2]);
+  return qty > 0 ? { qty, unitPrice } : null;
+}
+
+/**
+ * Strips leading tax indicators (+, -, *, •, V, T), bullet points, and trailing symbols from item names.
+ */
+export function cleanItemDescription(desc: string): string {
+  return desc
+    .replace(/^[\s+*\-•vVtT]\s*/, '')
+    .replace(/^[\d\s*xX.\-]+/, '')
+    .replace(/[*\-=_#~]+$/, '')
+    .trim();
+}
+
 // ---------------------------------------------------------------------------
 // Non-item filter regular expressions
 // ---------------------------------------------------------------------------
@@ -275,21 +328,29 @@ export function parseAmountWithCentavoFallback(raw: string): number {
 const EXCLUDED_PATTERNS = [
   // Tax lines & percentages
   /\b(?:tax|vat|vatable|vat-exempt|exempt|zero-rated|12%|percentage)\b/i,
-  // Barcodes, SKUs, and long number identifiers
+  // Barcodes, SKUs, card numbers, and long number identifiers
   /\b(?:barcode|ean|sku|upc|item#|code#)\b/i,
   /\b\d{10,}\b/,
+  /\b\d{4}[-\s]?\d{4}[-\s]?[xX0-9]{4}[-\s]?[xX0-9]{4}\b/,
   // Addresses, branches, and locations
   /\b(?:street|st\.|ave\.|avenue|blvd\.|boulevard|rd\.|road|brgy\.|barangay|city|bldg\.|building|mall|flr|floor|unit|drive|dr\.|poblacion)\b/i,
-  // Contact & Business Registration
-  /\b(?:tin|tel|telephone|phone|fax|mobile|cel|contact|permit|min|sn|serial|reg)\b/i,
+  // Contact & Business Registration (only match sn/min when followed by #, :, or digits)
+  /\b(?:tin|tel|telephone|phone|fax|mobile|cel|contact|permit)\b/i,
+  /\b(?:sn|min|serial)\s*[:#\d]/i,
+  /\b(?:sn#|min#|si#)\b/i,
   // POS & transaction metadata
   /\b(?:cashier|terminal|pos|station|receipt\s*(?:no|#)?|invoice\s*(?:no|#)?|or\s*(?:no|#)?|txn\s*(?:no|#)?|trans\s*(?:no|#)?|order\s*(?:no|#)?|table|pax|guest|server|clerk|shift)\b/i,
   // Payment methods and tendering
-  /\b(?:cash|change|tender|tendered|change\s*due|visa|mastercard|amex|debit|credit|card|gcash|maya|paymaya|wallet|points|discount|round|rounding)\b/i,
+  /\b(?:cash\s*tendered|change\s*due|offline\s*bdo|bdo\s*credit|visa\s*credit|mastercard|card\s*number)\b/i,
   // Summary header lines
-  /\b(?:subtotal|sub-total|total|amount\s*due|grand\s*total|balance\s*due|please\s*pay|net\s*amount)\b/i,
+  /\b(?:subtotal|sub-total|grand\s*total|amount\s*due|balance\s*due|please\s*pay)\b/i,
   // Greeting, courtesy, and footer notes
   /\b(?:thank\s*you|please\s*come\s*again|visit\s*again|customer\s*copy|store\s*copy|merchant\s*copy|keep\s*this\s*copy|powered\s*by|system\s*generated)\b/i,
+  // Footer metadata (Auth, Terminal, Items Purchased, Loyalty)
+  /\b(?:issuer(?:\s*name|\s*id)?|auth(?:\s*code)?|trace\s*no|ref\s*no|approval\s*code|items?\s*purchased|member\s*id|member\s*name|loyalty|points\s*earned)\b/i,
+  /\b(?:vatable\s*sales?|vat\s*amount|net\s*sales?)\b/i,
+  /^[*\-=_#~]+$/,
+  /^php$/i,
 ];
 
 /**
@@ -310,12 +371,13 @@ export function isNonItemLine(text: string): boolean {
  * Extracts a price value from text (e.g. "₱ 1,250.50" -> 1250.50)
  */
 export function extractPrice(text: string): number | null {
-  const res = validateAndParseCentavoAmount(text);
-  return res.amount > 0 ? res.amount : null;
+  const res = parseCurrencyAmount(text);
+  return res > 0 ? res : null;
 }
 
 /**
  * Extracts the merchant name by taking the topmost recognized line of text.
+ * Prioritizes recognizable store and supermarket brands.
  */
 export function extractMerchant(blocks: MLKitTextBlock[], defaultFallback: string = 'Scanned Receipt'): string {
   const allLines: MLKitTextLine[] = [];
@@ -332,14 +394,20 @@ export function extractMerchant(blocks: MLKitTextBlock[], defaultFallback: strin
     return topA - topB;
   });
 
-  // Pick first substantive line that doesn't look like an address, barcode, or telephone number
+  // Check top 12 lines for common store brand identifiers
+  const brandKeywords = /\b(?:savemore|sm\s*(?:supermarket|hypermarket|markets?|store|bonus)?|puregold|robinsons|walmart|wal-mart|7-eleven|alfamart|target|costco|meralco|starbucks|jollibee|mcdonald|kfc)\b/i;
+  for (let i = 0; i < Math.min(12, allLines.length); i++) {
+    const text = allLines[i].text.trim();
+    if (brandKeywords.test(text) && !isNonItemLine(text)) {
+      return cleanItemDescription(text);
+    }
+  }
+
+  // Fallback: pick first substantive line that doesn't look like an address, barcode, or metadata
   for (const line of allLines) {
     const text = line.text.trim();
     if (text.length >= 3 && !isNonItemLine(text) && /[a-zA-Z]/.test(text)) {
-      return text
-        .replace(/^[*\-=_#~]+\s*/, '')
-        .replace(/\s*[*\-=_#~]+$/, '')
-        .trim();
+      return cleanItemDescription(text);
     }
   }
 
@@ -347,7 +415,7 @@ export function extractMerchant(blocks: MLKitTextBlock[], defaultFallback: strin
 }
 
 /**
- * Parses date formats: MM/DD/YYYY, DD-MM-YYYY, YYYY-MM-DD, Month DD YYYY
+ * Parses date formats: MM/DD/YYYY, DD-MM-YYYY, YYYY-MM-DD, MM/DD/YY, Month DD YYYY
  * Normalizes into ISO YYYY-MM-DD.
  */
 export function extractDate(fullText: string): string | null {
@@ -375,7 +443,16 @@ export function extractDate(fullText: string): string | null {
     return `${y}-${m}-${d}`;
   }
 
-  // Regex 4: Named months (e.g. Oct 25, 2026 or 25 Oct 2026 or October 25 2026)
+  // Regex 4: MM/DD/YY or DD/MM/YY (2-digit year)
+  const shortYearMatch = fullText.match(/\b(0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])[-/.](2\d)\b/);
+  if (shortYearMatch) {
+    const m = shortYearMatch[1].padStart(2, '0');
+    const d = shortYearMatch[2].padStart(2, '0');
+    const y = `20${shortYearMatch[3]}`;
+    return `${y}-${m}-${d}`;
+  }
+
+  // Regex 5: Named months (e.g. Oct 25, 2026 or 25 Oct 2026 or October 25 2026)
   const monthMap: Record<string, string> = {
     jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
     jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
@@ -402,23 +479,95 @@ export function extractDate(fullText: string): string | null {
 }
 
 /**
- * Searches for keywords like 'Total', 'Amount Due', or 'Please Pay' and extracts
- * the numeric value, applying the centavo decimal fallback if a period was missed by the scanner.
+ * Searches for keywords like 'Total', 'Amount Due', 'Subtotal', or 'Please Pay' and extracts
+ * the numeric value. Handles both single-line and multi-column (two-block) receipt layouts.
  */
 export function extractTotalAmount(blocks: MLKitTextBlock[], rawText: string): number {
-  const totalKeywords = /\b(?:grand\s*total|total\s*amount(?:\s*due)?|amount\s*due|total|net\s*amount|please\s*pay(?:\s*on\s*or\s*before)?|balance\s*due)\b/i;
-  const candidates: number[] = [];
+  const totalKeywords = /\b(?:grand\s*total|total\s*amount(?:\s*due)?|amount\s*due|total\b|net\s*amount|please\s*pay(?:\s*on\s*or\s*before)?|balance\s*due)\b/i;
+  const subtotalKeywords = /\b(?:subtotal|sub-total)\b/i;
+  const paymentKeywords = /\b(?:offline\s*bdo|bdo\s*credit|visa|mastercard|debit\s*card|cash\s*tendered)\b/i;
 
+  let grandTotalCandidate = 0;
+  let subtotalCandidate = 0;
+  let paymentCandidate = 0;
+
+  // Flatten lines
+  const allLines: MLKitTextLine[] = [];
   for (const block of blocks) {
-    for (const line of block.lines) {
-      if (totalKeywords.test(line.text)) {
-        // Extract candidate number strings on this line
-        const numMatches = line.text.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/g);
+    if (block.lines) {
+      allLines.push(...block.lines);
+    }
+  }
+
+  // Pass 1: Direct single-line regex match on block lines
+  for (const line of allLines) {
+    const text = line.text.trim();
+    if (totalKeywords.test(text)) {
+      const numMatches = text.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/g);
+      if (numMatches) {
+        for (const m of numMatches) {
+          const val = parseCurrencyAmount(m);
+          if (val > grandTotalCandidate && val < 1000000) {
+            grandTotalCandidate = val;
+          }
+        }
+      }
+    } else if (subtotalKeywords.test(text)) {
+      const numMatches = text.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/g);
+      if (numMatches) {
+        for (const m of numMatches) {
+          const val = parseCurrencyAmount(m);
+          if (val > subtotalCandidate && val < 1000000) {
+            subtotalCandidate = val;
+          }
+        }
+      }
+    } else if (paymentKeywords.test(text)) {
+      const numMatches = text.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/g);
+      if (numMatches) {
+        for (const m of numMatches) {
+          const val = parseCurrencyAmount(m);
+          if (val > paymentCandidate && val < 1000000) {
+            paymentCandidate = val;
+          }
+        }
+      }
+    }
+  }
+
+  // Pass 2: Multi-column bounding frame alignment (Total label in left block, price in right block)
+  if (grandTotalCandidate === 0 && allLines.length > 0) {
+    for (const line of allLines) {
+      if (totalKeywords.test(line.text) && line.frame) {
+        const centerY = line.frame.top + line.frame.height / 2;
+        const tol = Math.max(30, line.frame.height * 1.5);
+        for (const other of allLines) {
+          if (!other.frame) continue;
+          if (other.frame.left < line.frame.left + 5) continue; // must be to the right
+          const diff = Math.abs((other.frame.top + other.frame.height / 2) - centerY);
+          if (diff <= tol) {
+            const val = parseCurrencyAmount(other.text);
+            if (val > grandTotalCandidate && val < 1000000) {
+              grandTotalCandidate = val;
+            }
+          }
+        }
+      }
+      if (grandTotalCandidate > 0) break;
+    }
+  }
+
+  // Pass 3: Raw text lines fallback
+  if (grandTotalCandidate === 0) {
+    const rawLines = rawText.split('\n');
+    for (const line of rawLines) {
+      if (totalKeywords.test(line)) {
+        const numMatches = line.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/g);
         if (numMatches) {
           for (const m of numMatches) {
-            const val = validateAndParseCentavoAmount(m).amount;
-            if (val > 0 && val < 1000000) {
-              candidates.push(val);
+            const val = parseCurrencyAmount(m);
+            if (val > grandTotalCandidate && val < 1000000) {
+              grandTotalCandidate = val;
             }
           }
         }
@@ -426,32 +575,7 @@ export function extractTotalAmount(blocks: MLKitTextBlock[], rawText: string): n
     }
   }
 
-  // If keyword matches found in blocks, return highest
-  if (candidates.length > 0) {
-    return Math.max(...candidates);
-  }
-
-  // Fallback: Scan lines in raw text
-  const lines = rawText.split('\n');
-  for (const line of lines) {
-    if (totalKeywords.test(line)) {
-      const numMatches = line.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/g);
-      if (numMatches) {
-        for (const m of numMatches) {
-          const val = validateAndParseCentavoAmount(m).amount;
-          if (val > 0 && val < 1000000) {
-            candidates.push(val);
-          }
-        }
-      }
-    }
-  }
-
-  if (candidates.length > 0) {
-    return Math.max(...candidates);
-  }
-
-  return 0;
+  return grandTotalCandidate || subtotalCandidate || paymentCandidate || 0;
 }
 
 interface PriceItemBox {
@@ -468,106 +592,190 @@ interface DescItemBox {
 }
 
 /**
- * Builds a line-item parser using bounding box vertical alignment (Y-axis coordinates)
- * to match an item description with its corresponding price on the same line.
+ * Builds a line-item parser supporting:
+ * 1. Single-line item formats: "[+][Description] [Price]"
+ * 2. Multi-line quantity headers: "2 X 61.75" followed by "DwnyFbconPessn6+1 123.50"
+ * 3. Multi-column layouts where ML Kit separates descriptions and prices into distinct blocks
+ * 4. Automatic suppression of footer metadata (AUTH CODE, ITEMS PURCHASED, MEMBER ID, etc.)
  */
-export function extractLineItems(blocks: MLKitTextBlock[]): ReceiptItem[] {
-  const items: ReceiptItem[] = [];
-  const descCandidates: DescItemBox[] = [];
-  const priceCandidates: PriceItemBox[] = [];
+export function extractLineItems(blocks: MLKitTextBlock[], rawText?: string): ReceiptItem[] {
+  // Strategy 1: Check rawText lines (most accurate when lines have description and price together)
+  const fullText = rawText || (blocks ? blocks.map(b => b.text).join('\n') : '');
+  const rawLines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
 
-  // Flatten lines
+  let hasHitTotal = false;
+  let pendingMult: { qty: number; unitPrice: number } | null = null;
+  const singleLineItems: ReceiptItem[] = [];
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+
+    // Stop item parsing once summary/total section begins
+    if (/\b(?:subtotal|sub-total|grand\s*total|total\b|amount\s*due|please\s*pay)\b/i.test(line)) {
+      hasHitTotal = true;
+      break;
+    }
+    if (hasHitTotal) break;
+
+    // Check for quantity multiplier line (e.g. "2 X 61.75", "4 X 25.25", "2 @ 40.00")
+    const mult = parseMultiplier(line);
+    if (mult) {
+      pendingMult = mult;
+      continue;
+    }
+
+    if (isNonItemLine(line)) {
+      pendingMult = null;
+      continue;
+    }
+
+    // Match item description with price at the end
+    const itemMatch = line.match(/^(.+?)\s+(?:[₱\$\s]|PHP|Php)?((?:\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?))$/i);
+    if (itemMatch) {
+      const rawDesc = itemMatch[1];
+      const cleanDesc = cleanItemDescription(rawDesc);
+      const price = parseCurrencyAmount(itemMatch[2]);
+
+      if (cleanDesc.length >= 2 && price > 0 && !isNonItemLine(cleanDesc)) {
+        let desc = cleanDesc;
+        if (pendingMult) {
+          desc = `${cleanDesc} (${pendingMult.qty}x @ ₱${pendingMult.unitPrice.toFixed(2)})`;
+        }
+        singleLineItems.push({
+          id: `item_${singleLineItems.length + 1}_${Date.now()}`,
+          description: desc,
+          price,
+          rawLine: line,
+        });
+        pendingMult = null;
+        continue;
+      }
+    }
+
+    pendingMult = null;
+  }
+
+  // If Strategy 1 successfully extracted items, return them
+  if (singleLineItems.length >= 2) {
+    return singleLineItems;
+  }
+
+  // Strategy 2: Multi-column bounding frame alignment
   const allLines: MLKitTextLine[] = [];
   for (const b of blocks) {
     if (b.lines) allLines.push(...b.lines);
   }
 
-  // 1. First Pass: Check lines that contain BOTH description and price
+  if (allLines.length === 0) {
+    return singleLineItems;
+  }
+
+  // Identify where total/subtotal starts vertically to avoid parsing footer metadata
+  let totalBoundaryY = 999999;
   for (const line of allLines) {
-    const text = line.text.trim();
-    if (isNonItemLine(text)) continue;
-
-    // Pattern: Description followed by a price at the end
-    const match = text.match(/^(.{1,150}?)\s+(?:[₱\$\s]|PHP|Php)?((?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?))$/i);
-    if (match) {
-      const desc = match[1].trim().replace(/^[\d\s*xX.\-]+/, '').trim();
-      const valRes = validateAndParseCentavoAmount(match[2]);
-      if (desc.length >= 2 && !isNonItemLine(desc) && valRes.amount > 0) {
-        items.push({
-          id: `item_${items.length + 1}_${Date.now()}`,
-          description: desc,
-          price: valRes.amount,
-          rawLine: text
-        });
-        continue;
-      }
-    }
-
-    // If line is separate, classify into description or price candidate
-    if (line.frame) {
-      const centerY = line.frame.top + line.frame.height / 2;
-      const purePriceMatch = text.replace(/^[₱\$\s]|PHP|Php/gi, '').trim().match(/^(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)$/);
-      if (purePriceMatch) {
-        const valRes = validateAndParseCentavoAmount(purePriceMatch[0]);
-        if (valRes.amount > 0 && valRes.amount < 500000) {
-          priceCandidates.push({
-            text,
-            price: valRes.amount,
-            frame: line.frame,
-            centerY
-          });
-        }
-      } else if (/[a-zA-Z]/.test(text) && !isNonItemLine(text)) {
-        descCandidates.push({
-          text,
-          frame: line.frame,
-          centerY
-        });
+    if (/\b(?:subtotal|sub-total|grand\s*total|total\b|amount\s*due|please\s*pay)\b/i.test(line.text) && line.frame) {
+      if (line.frame.top < totalBoundaryY) {
+        totalBoundaryY = line.frame.top;
       }
     }
   }
 
-  // 2. Second Pass: Bounding box vertical alignment for multi-column layouts
+  const descCandidates: DescItemBox[] = [];
+  const priceCandidates: PriceItemBox[] = [];
+  const multiplierLines: { text: string; centerY: number; frame: BoundingFrame; mult: { qty: number; unitPrice: number } | null }[] = [];
+
+  for (const line of allLines) {
+    const text = line.text.trim();
+    if (!line.frame) continue;
+
+    // Skip lines below total boundary for item parsing
+    if (line.frame.top >= totalBoundaryY) continue;
+
+    if (isMultiplierLine(text)) {
+      multiplierLines.push({
+        text,
+        centerY: line.frame.top + line.frame.height / 2,
+        frame: line.frame,
+        mult: parseMultiplier(text),
+      });
+      continue;
+    }
+
+    // Check if line is purely a price
+    const cleanNum = text.replace(/^[₱\$\s]|PHP|Php/gi, '').trim();
+    if (/^\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?$/.test(cleanNum)) {
+      const pVal = parseCurrencyAmount(cleanNum);
+      if (pVal > 0 && pVal < 500000) {
+        priceCandidates.push({
+          text: cleanNum,
+          price: pVal,
+          frame: line.frame,
+          centerY: line.frame.top + line.frame.height / 2,
+        });
+      }
+    } else if (/[a-zA-Z]/.test(text) && !isNonItemLine(text)) {
+      descCandidates.push({
+        text,
+        frame: line.frame,
+        centerY: line.frame.top + line.frame.height / 2,
+      });
+    }
+  }
+
+  descCandidates.sort((a, b) => a.centerY - b.centerY);
+  priceCandidates.sort((a, b) => a.centerY - b.centerY);
+  multiplierLines.sort((a, b) => a.centerY - b.centerY);
+
+  const multiColumnItems: ReceiptItem[] = [];
   const usedPriceIndices = new Set<number>();
+  const usedMultIndices = new Set<number>();
 
   for (const desc of descCandidates) {
-    let bestPriceIdx = -1;
-    let minVerticalDist = 99999;
+    let bestIdx = -1;
+    let minDiff = 9999;
+    const tolerance = Math.max(30, desc.frame.height * 1.6);
 
     for (let i = 0; i < priceCandidates.length; i++) {
       if (usedPriceIndices.has(i)) continue;
       const p = priceCandidates[i];
-
-      // Must be horizontally positioned to the right of the description
-      if (p.frame.left + 5 < desc.frame.left) continue;
-
-      // Vertical distance
-      const vDist = Math.abs(desc.centerY - p.centerY);
-      const tolerance = Math.max(16, desc.frame.height * 0.85);
-
-      if (vDist <= tolerance && vDist < minVerticalDist) {
-        minVerticalDist = vDist;
-        bestPriceIdx = i;
+      if (p.frame.left < desc.frame.left + 5) continue;
+      const diff = Math.abs(desc.centerY - p.centerY);
+      if (diff <= tolerance && diff < minDiff) {
+        minDiff = diff;
+        bestIdx = i;
       }
     }
 
-    if (bestPriceIdx !== -1) {
-      const matchedPrice = priceCandidates[bestPriceIdx];
-      usedPriceIndices.add(bestPriceIdx);
+    if (bestIdx !== -1) {
+      usedPriceIndices.add(bestIdx);
+      const cleanDesc = cleanItemDescription(desc.text);
 
-      const cleanDesc = desc.text.replace(/^[\d\s*xX.\-]+/, '').trim();
+      let multInfo = '';
+      for (let m = 0; m < multiplierLines.length; m++) {
+        if (usedMultIndices.has(m)) continue;
+        const mult = multiplierLines[m];
+        if (mult.centerY < desc.centerY && (desc.centerY - mult.centerY) <= desc.frame.height * 2.5) {
+          usedMultIndices.add(m);
+          if (mult.mult) {
+            multInfo = ` (${mult.mult.qty}x @ ₱${mult.mult.unitPrice.toFixed(2)})`;
+          }
+          break;
+        }
+      }
+
       if (cleanDesc.length >= 2 && !isNonItemLine(cleanDesc)) {
-        items.push({
-          id: `item_${items.length + 1}_${Date.now()}`,
-          description: cleanDesc,
-          price: matchedPrice.price,
-          rawLine: `${cleanDesc} ${matchedPrice.price}`
+        multiColumnItems.push({
+          id: `item_${multiColumnItems.length + 1}_${Date.now()}`,
+          description: `${cleanDesc}${multInfo}`,
+          price: priceCandidates[bestIdx].price,
+          rawLine: `${desc.text} ${priceCandidates[bestIdx].price}`,
         });
       }
     }
   }
 
-  return items;
+  // Return whichever strategy yielded more items
+  return multiColumnItems.length > singleLineItems.length ? multiColumnItems : singleLineItems;
 }
 
 // ---------------------------------------------------------------------------
@@ -582,18 +790,21 @@ export function isMeralcoBill(rawText: string): boolean {
   if (lower.includes('meralco') || lower.includes('manila electric')) {
     return true;
   }
-  const hasPleasePay = /please\s*pay/i.test(lower);
   const matchedCategories = MERALCO_CHARGE_CATEGORIES.filter(cat =>
     cat.patterns.some(p => p.test(lower))
   );
-  return hasPleasePay && matchedCategories.length >= 2;
+  if (matchedCategories.length >= 3) {
+    return true;
+  }
+  const hasTotal = /please\s*pay|total\s*amount\s*due|amount\s*due/i.test(lower);
+  return hasTotal && matchedCategories.length >= 2;
 }
 
 /**
  * Parses a Meralco electricity utility bill from ML Kit OCR results or raw text.
  * Applies the period validation step and /100 division fallback to:
- * 1. The "Please Pay" total
- * 2. All individual Meralco charge categories
+ * 1. The "Please Pay" / "Total Amount Due" total
+ * 2. All individual Meralco charge categories (including subsidies/negative numbers and zero charges)
  */
 export function parseMeralcoBill(
   input: MLKitRecognitionResult | string,
@@ -624,123 +835,153 @@ export function parseMeralcoBill(
   }
   if (!billDate) billDate = extractDate(rawText);
 
-  // 3. Extract "Please Pay" Total (applying centavo validation fallback)
-  const pleasePayRegex = /\b(?:please\s*pay(?:\s*on\s*or\s*before)?|total\s*amount\s*due|total\s*current\s*amount|amount\s*due)\b[:\s]*(?:[₱\$\s]|PHP|Php)?([0-9.,]+)?/i;
+  // 3. Extract "Please Pay" / "Total Amount Due" Total
+  const pleasePayRegex = /\b(?:please\s*pay(?:\s*on\s*or\s*before)?|total\s*amount\s*due|total\s*current\s*amount|total\b|amount\s*due)\b/i;
   let pleasePayResult: ValidatedAmountResult = { amount: 0, rawString: '', hasPeriod: false, wasAdjustedByFallback: false };
 
-  // Pass A: Check lines with regex
+  // Pass A: Check same line for total amount
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const match = line.match(pleasePayRegex);
-    if (match) {
-      if (match[1]) {
-        pleasePayResult = validateAndParseCentavoAmount(match[1]);
-        break;
-      } else if (i + 1 < lines.length) {
-        const nextLineMatch = lines[i + 1].match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/);
-        if (nextLineMatch) {
-          pleasePayResult = validateAndParseCentavoAmount(nextLineMatch[0]);
+    if (pleasePayRegex.test(line)) {
+      const numMatches = line.match(/(?:-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)/g);
+      if (numMatches && numMatches.length > 0) {
+        const valRes = validateAndParseCentavoAmount(numMatches[numMatches.length - 1]);
+        if (valRes.amount > 0) {
+          pleasePayResult = valRes;
           break;
         }
       }
     }
   }
 
-  // Pass B: Fallback search if strict pattern didn't yield an amount
+  // Pass B: Bounding frame alignment for Total Amount Due (two-column layout)
+  if (pleasePayResult.amount === 0 && blocks.length > 0) {
+    const allBlockLines: MLKitTextLine[] = [];
+    for (const b of blocks) {
+      if (b.lines) allBlockLines.push(...b.lines);
+    }
+    for (const bLine of allBlockLines) {
+      if (pleasePayRegex.test(bLine.text) && bLine.frame) {
+        const centerY = bLine.frame.top + bLine.frame.height / 2;
+        const tol = Math.max(30, bLine.frame.height * 1.5);
+        for (const other of allBlockLines) {
+          if (!other.frame) continue;
+          if (other.frame.left < bLine.frame.left + 5) continue;
+          const diff = Math.abs((other.frame.top + other.frame.height / 2) - centerY);
+          if (diff <= tol) {
+            const numMatch = other.text.match(/(?:-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)/);
+            if (numMatch) {
+              const valRes = validateAndParseCentavoAmount(numMatch[0]);
+              if (valRes.amount > 0) {
+                pleasePayResult = valRes;
+                break;
+              }
+            }
+          }
+        }
+      }
+      if (pleasePayResult.amount > 0) break;
+    }
+  }
+
+  // Pass C: Fallback to next line in lines array
   if (pleasePayResult.amount === 0) {
-    for (const line of lines) {
-      if (/please\s*pay/i.test(line)) {
-        const numMatch = line.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/g);
-        if (numMatch && numMatch.length > 0) {
-          pleasePayResult = validateAndParseCentavoAmount(numMatch[numMatch.length - 1]);
-          break;
+    for (let i = 0; i < lines.length; i++) {
+      if (pleasePayRegex.test(lines[i]) && i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        if (/^(?:[₱\$\s]|PHP|Php)*\s*[\d,]+(?:\.\d+)?\s*$/i.test(nextLine)) {
+          const res = validateAndParseCentavoAmount(nextLine);
+          if (res.amount > 0) {
+            pleasePayResult = res;
+            break;
+          }
         }
       }
     }
   }
 
-  // 4. Extract All Individual Meralco Charge Categories (applying centavo validation fallback)
+  // 4. Extract All Individual Meralco Charge Categories
   const charges: Record<string, MeralcoChargeItem> = {};
   const chargesList: MeralcoChargeItem[] = [];
 
+  // Strategy 1: Check lines where label and price are together
+  const lineMatchedItems: MeralcoChargeItem[] = [];
   for (const catDef of MERALCO_CHARGE_CATEGORIES) {
-    let matchedItem: MeralcoChargeItem | null = null;
-
-    // Check lines in text
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const isMatch = catDef.patterns.some(p => p.test(line));
-      if (!isMatch) continue;
+      if (!catDef.patterns.some(p => p.test(line))) continue;
 
-      const numMatches = line.match(/(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)/g);
-      let rawNum: string | null = null;
-
+      const numMatches = line.match(/(?:-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)/g);
       if (numMatches && numMatches.length > 0) {
-        // Take the rightmost numeric token on this category line
-        rawNum = numMatches[numMatches.length - 1];
-      } else if (i + 1 < lines.length) {
-        // Amount might be on the line directly below the category label
-        const nextLineMatch = lines[i + 1].match(/^(?:[₱\$\s]|PHP|Php)*([\d,]+(?:\.\d+)?)$/);
-        if (nextLineMatch) {
-          rawNum = nextLineMatch[1];
-        }
-      }
-
-      if (rawNum) {
+        const rawNum = numMatches[numMatches.length - 1];
         const valRes = validateAndParseCentavoAmount(rawNum);
-        matchedItem = {
+        lineMatchedItems.push({
           key: catDef.key,
           label: catDef.label,
           amount: valRes.amount,
           rawString: valRes.rawString,
           hasPeriod: valRes.hasPeriod,
           wasAdjustedByFallback: valRes.wasAdjustedByFallback,
-        };
+        });
         break;
       }
     }
+  }
 
-    // Pass B: MLKit bounding box vertical alignment if blocks are present and line search didn't find price
-    if (!matchedItem && blocks.length > 0) {
-      // Flatten all lines from blocks
-      const allBlockLines: MLKitTextLine[] = [];
-      for (const b of blocks) {
-        if (b.lines) allBlockLines.push(...b.lines);
-      }
+  if (lineMatchedItems.length >= 3) {
+    for (const item of lineMatchedItems) {
+      charges[item.key] = item;
+      chargesList.push(item);
+    }
+  } else if (blocks.length > 0) {
+    // Strategy 2: Multi-column bounding box search with best candidate pairing
+    const allBlockLines: MLKitTextLine[] = [];
+    for (const b of blocks) {
+      if (b.lines) allBlockLines.push(...b.lines);
+    }
+
+    const usedPriceIndices = new Set<number>();
+    for (const catDef of MERALCO_CHARGE_CATEGORIES) {
+      let bestCandidate: { idx: number; item: MeralcoChargeItem } | null = null;
+      let minDiff = 9999;
 
       for (const bLine of allBlockLines) {
         if (!catDef.patterns.some(p => p.test(bLine.text))) continue;
         if (!bLine.frame) continue;
-
         const centerY = bLine.frame.top + bLine.frame.height / 2;
 
-        // Find candidate price box to the right on the same horizontal band
-        for (const candidate of allBlockLines) {
+        for (let c = 0; c < allBlockLines.length; c++) {
+          if (usedPriceIndices.has(c)) continue;
+          const candidate = allBlockLines[c];
           if (!candidate.frame) continue;
-          if (candidate.frame.left + 5 < bLine.frame.left) continue;
-          const vDist = Math.abs((candidate.frame.top + candidate.frame.height / 2) - centerY);
-          if (vDist <= Math.max(16, bLine.frame.height * 0.9)) {
-            const valRes = validateAndParseCentavoAmount(candidate.text);
-            if (valRes.amount > 0) {
-              matchedItem = {
-                key: catDef.key,
-                label: catDef.label,
-                amount: valRes.amount,
-                rawString: valRes.rawString,
-                hasPeriod: valRes.hasPeriod,
-                wasAdjustedByFallback: valRes.wasAdjustedByFallback,
+          if (candidate.frame.left < bLine.frame.left + 5) continue;
+          const diff = Math.abs((candidate.frame.top + candidate.frame.height / 2) - centerY);
+          if (diff <= Math.max(25, bLine.frame.height * 1.5) && diff < minDiff) {
+            const numMatch = candidate.text.match(/(?:-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)/);
+            if (numMatch) {
+              const valRes = validateAndParseCentavoAmount(numMatch[0]);
+              minDiff = diff;
+              bestCandidate = {
+                idx: c,
+                item: {
+                  key: catDef.key,
+                  label: catDef.label,
+                  amount: valRes.amount,
+                  rawString: valRes.rawString,
+                  hasPeriod: valRes.hasPeriod,
+                  wasAdjustedByFallback: valRes.wasAdjustedByFallback,
+                }
               };
-              break;
             }
           }
         }
-        if (matchedItem) break;
       }
-    }
 
-    if (matchedItem) {
-      charges[catDef.key] = matchedItem;
-      chargesList.push(matchedItem);
+      if (bestCandidate) {
+        usedPriceIndices.add(bestCandidate.idx);
+        charges[bestCandidate.item.key] = bestCandidate.item;
+        chargesList.push(bestCandidate.item);
+      }
     }
   }
 
@@ -758,12 +999,18 @@ export function parseMeralcoBill(
   }
 
   // Map individual Meralco charge categories into ReceiptItem list
-  const receiptItems: ReceiptItem[] = chargesList.map((item, idx) => ({
-    id: `meralco_${item.key}_${Date.now()}_${idx}`,
-    description: item.label,
-    price: item.amount,
-    rawLine: `${item.label}: ${currencySymbol}${item.amount.toFixed(2)}${item.wasAdjustedByFallback ? ' (centavos restored)' : ''}`
-  }));
+  const receiptItems: ReceiptItem[] = chargesList.map((item, idx) => {
+    const isNeg = item.amount < 0;
+    const formattedPrice = isNeg 
+      ? `-${currencySymbol}${Math.abs(item.amount).toFixed(2)}` 
+      : `${currencySymbol}${item.amount.toFixed(2)}`;
+    return {
+      id: `meralco_${item.key}_${Date.now()}_${idx}`,
+      description: item.label,
+      price: item.amount,
+      rawLine: `${item.label}: ${formattedPrice}${item.wasAdjustedByFallback ? ' (centavos restored)' : ''}`
+    };
+  });
 
   // Determine final total
   const finalTotal = pleasePayResult.amount > 0 ? pleasePayResult.amount : totalFromCharges;
@@ -778,7 +1025,10 @@ export function parseMeralcoBill(
   notesLines.push('BREAKDOWN OF CHARGES:');
   for (const c of chargesList) {
     const fallbackFlag = c.wasAdjustedByFallback ? ' [missing period fixed]' : '';
-    notesLines.push(`• ${c.label}: ${currencySymbol}${c.amount.toFixed(2)}${fallbackFlag}`);
+    const formattedVal = c.amount < 0 
+      ? `-${currencySymbol}${Math.abs(c.amount).toFixed(2)}` 
+      : `${currencySymbol}${c.amount.toFixed(2)}`;
+    notesLines.push(`• ${c.label}: ${formattedVal}${fallbackFlag}`);
   }
   notesLines.push('------------------------------');
   notesLines.push(`Charges Subtotal: ${currencySymbol}${totalFromCharges.toFixed(2)}`);
@@ -856,14 +1106,15 @@ export function parseReceipt(ocrResult: MLKitRecognitionResult, currencySymbol: 
   }
 
   const merchant = extractMerchant(blocks);
-  const date = extractDate(rawText);
+  const extractedDate = extractDate(rawText);
+  const date = extractedDate || new Date().toISOString().split('T')[0];
   const totalAmount = extractTotalAmount(blocks, rawText);
-  const items = extractLineItems(blocks);
+  const items = extractLineItems(blocks, rawText);
 
   // If totalAmount was 0, but items were found, sum of items can serve as calculated total
   const finalTotal = totalAmount > 0 
     ? totalAmount 
-    : items.reduce((sum, item) => sum + item.price, 0);
+    : Number(items.reduce((sum, item) => sum + item.price, 0).toFixed(2));
 
   const formattedNotes = generateFormattedNotes(merchant, date, finalTotal, items, currencySymbol);
 
