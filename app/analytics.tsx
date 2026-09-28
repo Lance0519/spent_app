@@ -278,9 +278,9 @@ export default function AnalyticsScreen() {
               <View style={tw`w-7 h-7 rounded-full bg-emerald-500/15 items-center justify-center mb-1.5 border border-emerald-500/20`}>
                 <TrendingUp size={15} color="#10b981" />
               </View>
-              <Text style={[tw`text-[10px] font-bold uppercase tracking-wider`, { color: textMuted }]}>Income</Text>
+              <Text style={tw`text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300`}>Income</Text>
               <Text 
-                style={tw`text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5`} 
+                style={tw`text-base font-black text-emerald-700 dark:text-emerald-400 mt-0.5`} 
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -293,9 +293,9 @@ export default function AnalyticsScreen() {
               <View style={tw`w-7 h-7 rounded-full bg-rose-500/15 items-center justify-center mb-1.5 border border-rose-500/20`}>
                 <TrendingDown size={15} color="#f43f5e" />
               </View>
-              <Text style={[tw`text-[10px] font-bold uppercase tracking-wider`, { color: textMuted }]}>Expenses</Text>
+              <Text style={tw`text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300`}>Expenses</Text>
               <Text 
-                style={tw`text-base font-black text-rose-600 dark:text-rose-400 mt-0.5`} 
+                style={tw`text-base font-black text-rose-700 dark:text-rose-400 mt-0.5`} 
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
@@ -313,11 +313,11 @@ export default function AnalyticsScreen() {
               <View style={tw`w-7 h-7 rounded-full bg-blue-500/15 items-center justify-center mb-1.5 border border-blue-500/20`}>
                 <Scale size={15} color={accentColor} />
               </View>
-              <Text style={[tw`text-[10px] font-bold uppercase tracking-wider`, { color: textMuted }]}>Net Savings</Text>
+              <Text style={tw`text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300`}>Net Savings</Text>
               <Text 
                 style={[
                   tw`text-base font-black mt-0.5`,
-                  summaryTotals.netSavings >= 0 ? { color: textPrimary } : tw`text-rose-600 dark:text-rose-400`
+                  summaryTotals.netSavings >= 0 ? { color: textPrimary } : tw`text-rose-700 dark:text-rose-400`
                 ]} 
                 numberOfLines={1}
                 adjustsFontSizeToFit

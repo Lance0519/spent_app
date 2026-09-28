@@ -107,13 +107,13 @@ export default function Dashboard() {
 
   return (
     <AmbientBackground style={tw`flex-1 relative`}>
-      {/* Header Gradient Card with Specular Shimmer */}
+      {/* Header Gradient Card with High Contrast Specular Shimmer */}
       <View style={tw`overflow-hidden rounded-b-[32px] border-b border-white/20 dark:border-white/10 shadow-lg`}>
         <LinearGradient
           colors={
             isDark 
-              ? ['rgba(26, 23, 33, 0.92)', 'rgba(38, 34, 48, 0.85)'] 
-              : [palette.dark, palette.light]
+              ? ['rgba(20, 17, 28, 0.96)', 'rgba(32, 28, 44, 0.90)'] 
+              : ['#0F172A', palette.dark]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -131,14 +131,14 @@ export default function Dashboard() {
           <View style={tw`flex-row justify-between items-center mb-5`}>
             <View>
               <View style={tw`flex-row items-center mb-1`}>
-                <Text style={tw`text-blue-100 dark:text-slate-300 text-xs font-bold uppercase tracking-wider mr-2`}>
+                <Text style={tw`text-slate-300 text-xs font-bold uppercase tracking-wider mr-2`}>
                   Total Balance
                 </Text>
                 <TouchableOpacity 
                   onPress={() => setShowBalance(!showBalance)}
                   style={tw`min-h-[32px] min-w-[32px] items-center justify-center`}
                 >
-                  {showBalance ? <Eye color={isDark ? '#cbd5e1' : '#bfdbfe'} size={16} /> : <EyeOff color={isDark ? '#cbd5e1' : '#bfdbfe'} size={16} />}
+                  {showBalance ? <Eye color="#cbd5e1" size={16} /> : <EyeOff color="#cbd5e1" size={16} />}
                 </TouchableOpacity>
               </View>
               <Text style={tw`text-white text-4xl font-black tracking-tight`}>
@@ -150,27 +150,27 @@ export default function Dashboard() {
           {/* Monthly Income & Expense Glass Cards */}
           <View style={tw`flex-row justify-between gap-3`}>
             <GlassView 
-              intensity={30} 
+              level="control" 
               borderRadius={18} 
-              borderColor="rgba(52, 211, 153, 0.35)"
-              style={tw`flex-1`}
+              borderColor="rgba(52, 211, 153, 0.45)"
+              style={tw`flex-1 bg-emerald-950/40`}
               contentStyle={tw`px-4 py-3`}
             >
-              <Text style={tw`text-emerald-300 dark:text-emerald-400 text-xs font-semibold`}>This Month Income</Text>
-              <Text style={tw`text-white font-black text-sm mt-0.5`}>
+              <Text style={tw`text-emerald-300 text-xs font-extrabold tracking-wide`}>This Month Income</Text>
+              <Text style={tw`text-white font-black text-base mt-0.5`}>
                 {showBalance ? formatCurrency(totalMonthlyIncome) : '••••••'}
               </Text>
             </GlassView>
 
             <GlassView 
-              intensity={30} 
+              level="control" 
               borderRadius={18} 
-              borderColor="rgba(251, 113, 133, 0.35)"
-              style={tw`flex-1`}
+              borderColor="rgba(251, 113, 133, 0.45)"
+              style={tw`flex-1 bg-rose-950/40`}
               contentStyle={tw`px-4 py-3`}
             >
-              <Text style={tw`text-rose-300 dark:text-rose-400 text-xs font-semibold`}>This Month Expenses</Text>
-              <Text style={tw`text-white font-black text-sm mt-0.5`}>
+              <Text style={tw`text-rose-300 text-xs font-extrabold tracking-wide`}>This Month Expenses</Text>
+              <Text style={tw`text-white font-black text-base mt-0.5`}>
                 {showBalance ? formatCurrency(totalMonthlyExpenses) : '••••••'}
               </Text>
             </GlassView>

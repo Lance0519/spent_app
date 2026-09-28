@@ -489,8 +489,8 @@ export default function AccountScreen() {
         <LinearGradient
           colors={
             isDark 
-              ? ['rgba(26, 23, 33, 0.92)', 'rgba(38, 34, 48, 0.85)'] 
-              : [palette.dark, palette.light]
+              ? ['rgba(20, 17, 28, 0.96)', 'rgba(32, 28, 44, 0.90)'] 
+              : ['#0F172A', palette.dark]
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -541,7 +541,7 @@ export default function AccountScreen() {
                       <Edit2 size={12} color="#fff" />
                     </TouchableOpacity>
                   </View>
-                  <Text style={tw`text-xs font-medium text-blue-100 mt-0.5`} numberOfLines={1}>{profile.email}</Text>
+                  <Text style={tw`text-xs font-medium text-slate-300 mt-0.5`} numberOfLines={1}>{profile.email}</Text>
                 </View>
               )}
             </View>
@@ -555,16 +555,16 @@ export default function AccountScreen() {
 
           {/* Live Net Worth Glass Card */}
           <GlassView 
-            intensity={30}
+            level="control"
             borderRadius={20}
-            style={tw`w-full`}
+            style={tw`w-full bg-slate-950/40`}
             contentStyle={tw`p-4 flex-row items-center justify-between`}
           >
             <View>
               <View style={tw`flex-row items-center mb-0.5`}>
-                <Text style={tw`text-xs font-bold text-blue-100 uppercase tracking-wider mr-1.5`}>Total Net Worth</Text>
+                <Text style={tw`text-xs font-bold text-slate-300 uppercase tracking-wider mr-1.5`}>Total Net Worth</Text>
                 <TouchableOpacity onPress={() => setShowNetWorth(!showNetWorth)}>
-                  {showNetWorth ? <Eye size={14} color="#bfdbfe" /> : <EyeOff size={14} color="#bfdbfe" />}
+                  {showNetWorth ? <Eye size={14} color="#cbd5e1" /> : <EyeOff size={14} color="#cbd5e1" />}
                 </TouchableOpacity>
               </View>
               <Text style={tw`text-2xl font-black text-white tracking-tight`}>
@@ -578,7 +578,7 @@ export default function AccountScreen() {
               {/* Currency Pill */}
               <TouchableOpacity 
                 onPress={() => setActiveModal('currency')}
-                style={tw`bg-white/20 px-2.5 py-1 rounded-full border border-white/40`}
+                style={tw`bg-white/20 px-3 py-1 rounded-full border border-white/40`}
               >
                 <Text style={tw`text-xs font-bold text-white uppercase`}>{currency}</Text>
               </TouchableOpacity>
