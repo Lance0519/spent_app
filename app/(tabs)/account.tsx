@@ -70,6 +70,8 @@ import {
 import { scheduleDailyReminder } from '../../services/NotificationService';
 import { useTheme, ACCENT_PALETTES, AccentPaletteKey } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { AmbientBackground } from '../../components/AmbientBackground';
+import { GlassView } from '../../components/GlassView';
 
 const SUPPORTED_CURRENCIES = [
   { code: 'PHP', symbol: '₱', name: 'Philippine Peso' },
@@ -481,110 +483,129 @@ export default function AccountScreen() {
   };
 
   return (
-    <View style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218]`}>
-      
+    <AmbientBackground style={tw`flex-1 relative`}>
       {/* Profile & Net Worth Gradient Header */}
-      <LinearGradient
-        colors={isDark ? ['#141218', '#2B2930'] : [palette.dark, palette.light]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={tw`pt-14 pb-6 px-6 rounded-b-3xl shadow-lg`}
-      >
-        <View style={tw`flex-row items-center justify-between mb-4`}>
-          <View style={tw`flex-row items-center flex-1 mr-2`}>
-            <View style={tw`w-16 h-16 bg-white/20 rounded-full items-center justify-center border-2 border-white/40 mr-3`}>
-              <Text style={tw`text-2xl font-black text-white`}>
-                {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
-              </Text>
+      <View style={tw`overflow-hidden rounded-b-[32px] border-b border-white/20 dark:border-white/10 shadow-lg`}>
+        <LinearGradient
+          colors={
+            isDark 
+              ? ['rgba(26, 23, 33, 0.92)', 'rgba(38, 34, 48, 0.85)'] 
+              : [palette.dark, palette.light]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={tw`pt-14 pb-6 px-6 relative`}
+        >
+          {/* Top Specular Reflection */}
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0.20)', 'rgba(255, 255, 255, 0.0)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 0.5 }}
+            style={tw`absolute inset-0`}
+            pointerEvents="none"
+          />
+
+          <View style={tw`flex-row items-center justify-between mb-4`}>
+            <View style={tw`flex-row items-center flex-1 mr-2`}>
+              <View style={tw`w-16 h-16 bg-white/20 rounded-full items-center justify-center border-2 border-white/40 mr-3`}>
+                <Text style={tw`text-2xl font-black text-white`}>
+                  {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+
+              {isEditingProfile ? (
+                <View style={tw`flex-1 mr-2`}>
+                  <TextInput
+                    style={tw`bg-white/20 text-white font-bold text-base px-3 py-1.5 rounded-xl mb-1.5`}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder="Your Name"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                  />
+                  <TextInput
+                    style={tw`bg-white/20 text-white text-xs px-3 py-1 rounded-xl`}
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                    placeholder="Your Email"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    keyboardType="email-address"
+                  />
+                </View>
+              ) : (
+                <View style={tw`flex-1`}>
+                  <View style={tw`flex-row items-center`}>
+                    <Text style={tw`text-xl font-black text-white tracking-tight mr-1.5`} numberOfLines={1}>
+                      {profile.name}
+                    </Text>
+                    <TouchableOpacity onPress={() => setIsEditingProfile(true)} style={tw`bg-white/20 p-1 rounded-full`}>
+                      <Edit2 size={12} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={tw`text-xs font-medium text-blue-100 mt-0.5`} numberOfLines={1}>{profile.email}</Text>
+                </View>
+              )}
             </View>
 
-            {isEditingProfile ? (
-              <View style={tw`flex-1 mr-2`}>
-                <TextInput
-                  style={tw`bg-white/20 text-white font-bold text-base px-3 py-1.5 rounded-xl mb-1.5`}
-                  value={editName}
-                  onChangeText={setEditName}
-                  placeholder="Your Name"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
-                />
-                <TextInput
-                  style={tw`bg-white/20 text-white text-xs px-3 py-1 rounded-xl`}
-                  value={editEmail}
-                  onChangeText={setEditEmail}
-                  placeholder="Your Email"
-                  placeholderTextColor="rgba(255,255,255,0.6)"
-                  keyboardType="email-address"
-                />
-              </View>
-            ) : (
-              <View style={tw`flex-1`}>
-                <View style={tw`flex-row items-center`}>
-                  <Text style={tw`text-xl font-black text-white tracking-tight mr-1.5`} numberOfLines={1}>
-                    {profile.name}
-                  </Text>
-                  <TouchableOpacity onPress={() => setIsEditingProfile(true)} style={tw`bg-white/20 p-1 rounded-full`}>
-                    <Edit2 size={12} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-                <Text style={tw`text-xs font-medium text-blue-100 mt-0.5`} numberOfLines={1}>{profile.email}</Text>
-              </View>
+            {isEditingProfile && (
+              <TouchableOpacity onPress={handleSaveProfile} style={tw`bg-white/30 px-3 py-1.5 rounded-full border border-white/60`}>
+                <Check size={16} color="#fff" />
+              </TouchableOpacity>
             )}
           </View>
 
-          {isEditingProfile && (
-            <TouchableOpacity onPress={handleSaveProfile} style={tw`bg-white/30 px-3 py-1.5 rounded-full border border-white/60`}>
-              <Check size={16} color="#fff" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Live Net Worth Card */}
-        <View style={tw`bg-white/15 border border-white/25 rounded-2xl p-4 flex-row items-center justify-between shadow-sm`}>
-          <View>
-            <View style={tw`flex-row items-center mb-0.5`}>
-              <Text style={tw`text-xs font-bold text-blue-100 uppercase tracking-wider mr-1.5`}>Total Net Worth</Text>
-              <TouchableOpacity onPress={() => setShowNetWorth(!showNetWorth)}>
-                {showNetWorth ? <Eye size={14} color="#bfdbfe" /> : <EyeOff size={14} color="#bfdbfe" />}
-              </TouchableOpacity>
+          {/* Live Net Worth Glass Card */}
+          <GlassView 
+            intensity={30}
+            borderRadius={20}
+            style={tw`w-full`}
+            contentStyle={tw`p-4 flex-row items-center justify-between`}
+          >
+            <View>
+              <View style={tw`flex-row items-center mb-0.5`}>
+                <Text style={tw`text-xs font-bold text-blue-100 uppercase tracking-wider mr-1.5`}>Total Net Worth</Text>
+                <TouchableOpacity onPress={() => setShowNetWorth(!showNetWorth)}>
+                  {showNetWorth ? <Eye size={14} color="#bfdbfe" /> : <EyeOff size={14} color="#bfdbfe" />}
+                </TouchableOpacity>
+              </View>
+              <Text style={tw`text-2xl font-black text-white tracking-tight`}>
+                {showNetWorth 
+                  ? formatCurrency(totalNetWorth) 
+                  : `${currencySymbol}** ***.**`}
+              </Text>
             </View>
-            <Text style={tw`text-2xl font-black text-white tracking-tight`}>
-              {showNetWorth 
-                ? formatCurrency(totalNetWorth) 
-                : `${currencySymbol}** ***.**`}
-            </Text>
-          </View>
 
-          <View style={tw`flex-row items-center gap-2`}>
-            {/* Currency Pill */}
-            <TouchableOpacity 
-              onPress={() => setActiveModal('currency')}
-              style={tw`bg-white/20 px-2.5 py-1 rounded-full border border-white/40`}
-            >
-              <Text style={tw`text-xs font-bold text-white uppercase`}>{currency}</Text>
-            </TouchableOpacity>
+            <View style={tw`flex-row items-center gap-2`}>
+              {/* Currency Pill */}
+              <TouchableOpacity 
+                onPress={() => setActiveModal('currency')}
+                style={tw`bg-white/20 px-2.5 py-1 rounded-full border border-white/40`}
+              >
+                <Text style={tw`text-xs font-bold text-white uppercase`}>{currency}</Text>
+              </TouchableOpacity>
 
-            {/* Accent Palette Indicator */}
-            <View style={[tw`w-6 h-6 rounded-full border border-white/60`, { backgroundColor: accentColor }]} />
-          </View>
-        </View>
-      </LinearGradient>
+              {/* Accent Palette Indicator */}
+              <View style={[tw`w-6 h-6 rounded-full border border-white/60`, { backgroundColor: accentColor }]} />
+            </View>
+          </GlassView>
+        </LinearGradient>
+      </View>
 
       {/* Main Settings List */}
-      <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1 px-5 pt-5`} contentContainerStyle={tw`pb-12`}>
+      <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1 px-5 pt-5`} contentContainerStyle={tw`pb-32`}>
         
         {/* GROUP 1: Core Financial Tools */}
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Wallets & Core Assets
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
           
           {/* Manage Accounts & Wallets */}
           <TouchableOpacity 
             onPress={() => setActiveModal('accounts')} 
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center flex-1`}>
-              <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <Wallet color="#3b82f6" size={18} />
               </View>
               <View style={tw`flex-1`}>
@@ -600,10 +621,10 @@ export default function AccountScreen() {
           {/* Inter-Account Transfer */}
           <TouchableOpacity 
             onPress={() => setActiveModal('transfer')} 
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <ArrowRightLeft color="#10b981" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Transfer Between Accounts</Text>
@@ -614,10 +635,10 @@ export default function AccountScreen() {
           {/* Manage Categories */}
           <TouchableOpacity 
             onPress={() => router.push('/categories')} 
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-purple-50 dark:bg-purple-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-purple-50 dark:bg-purple-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <Settings color="#a855f7" size={18} />
               </View>
               <View>
@@ -634,27 +655,27 @@ export default function AccountScreen() {
             style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-amber-50 dark:bg-amber-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-amber-50 dark:bg-amber-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <Target color="#f59e0b" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Budgets & Savings Goals</Text>
             </View>
             <ChevronRight color={textMuted} size={18} />
           </TouchableOpacity>
-        </View>
+        </GlassView>
 
         {/* GROUP 2: Insights & Planning */}
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Reports & Planning
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
           
           <TouchableOpacity 
             onPress={() => router.push('/analytics')} 
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-teal-50 dark:bg-teal-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-teal-50 dark:bg-teal-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <PieChart color="#14b8a6" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Financial Analytics</Text>
@@ -667,20 +688,20 @@ export default function AccountScreen() {
             style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-orange-50 dark:bg-orange-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-orange-50 dark:bg-orange-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <List color="#f97316" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Reminders & Upcoming Bills</Text>
             </View>
             <ChevronRight color={textMuted} size={18} />
           </TouchableOpacity>
-        </View>
+        </GlassView>
 
         {/* GROUP 3: Appearance & Accent Palette */}
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Appearance & Accent
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-3.5 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-3.5`}>
           
           {/* Accent Color Palette Picker */}
           <View style={tw`mb-4`}>
@@ -718,9 +739,9 @@ export default function AccountScreen() {
           </View>
 
           {/* Dark Mode */}
-          <View style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-slate-100 dark:border-slate-800/60`}>
+          <View style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-white/20 dark:border-white/5`}>
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-white/20 dark:bg-white/5 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 {isDark ? <Moon color="#64748b" size={18} /> : <Sun color="#64748b" size={18} />}
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Dark Mode</Text>
@@ -736,10 +757,10 @@ export default function AccountScreen() {
           {/* Base Currency */}
           <TouchableOpacity 
             onPress={() => setActiveModal('currency')}
-            style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-white/20 dark:bg-white/5 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <Text style={[tw`font-black text-sm`, { color: textPrimary }]}>{currencySymbol}</Text>
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Base Currency</Text>
@@ -753,9 +774,9 @@ export default function AccountScreen() {
           </TouchableOpacity>
 
           {/* Privacy Mode (Default Hide Balances) */}
-          <View style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-slate-100 dark:border-slate-800/60`}>
+          <View style={tw`flex-row items-center justify-between py-2 min-h-[48px] border-t border-white/20 dark:border-white/5`}>
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-white/20 dark:bg-white/5 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <EyeOff color="#64748b" size={18} />
               </View>
               <View>
@@ -770,17 +791,17 @@ export default function AccountScreen() {
               thumbColor={'#fff'}
             />
           </View>
-        </View>
+        </GlassView>
 
         {/* GROUP 4: Security & Notifications */}
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Security & Notifications
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
           
-          <View style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}>
+          <View style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}>
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <Shield color="#3b82f6" size={18} />
               </View>
               <View>
@@ -798,10 +819,10 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={handleLockNow}
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-amber-50 dark:bg-amber-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-amber-50 dark:bg-amber-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <Lock color="#f59e0b" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Lock App Now</Text>
@@ -811,7 +832,7 @@ export default function AccountScreen() {
 
           <View style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}>
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <Bell color="#10b981" size={18} />
               </View>
               <View>
@@ -826,20 +847,20 @@ export default function AccountScreen() {
               thumbColor={'#fff'}
             />
           </View>
-        </View>
+        </GlassView>
 
         {/* GROUP 5: Data Vault & Backups */}
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Data Vault & Export
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-5 border border-slate-100 dark:border-slate-800`}>
+        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
           
           <TouchableOpacity 
             onPress={handleExportCSV} 
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-emerald-50 dark:bg-emerald-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <FileSpreadsheet color="#10b981" size={18} />
               </View>
               <View>
@@ -852,10 +873,10 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={handleExportJSON} 
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <DownloadCloud color="#3b82f6" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Backup Data (JSON)</Text>
@@ -865,10 +886,10 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={handleImportJSON} 
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-teal-50 dark:bg-teal-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-teal-50 dark:bg-teal-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <UploadCloud color="#14b8a6" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Restore Data (JSON)</Text>
@@ -881,27 +902,26 @@ export default function AccountScreen() {
             style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-rose-50 dark:bg-rose-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-rose-50 dark:bg-rose-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <Trash2 color="#f43f5e" size={18} />
               </View>
               <Text style={tw`text-sm font-bold text-rose-500 dark:text-rose-400`}>Wipe All Data</Text>
             </View>
             <ChevronRight color={textMuted} size={18} />
           </TouchableOpacity>
-        </View>
+        </GlassView>
 
         {/* GROUP 6: Info, Guide & Support */}
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Help & Information
         </Text>
-        <View style={tw`bg-[#F4EFF4] dark:bg-[#211F26] rounded-2xl p-1 mb-6 border border-slate-100 dark:border-slate-800`}>
-          
+        <GlassView intensity={35} borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-1`}>
           <TouchableOpacity 
             onPress={() => setActiveModal('faq')}
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-blue-50 dark:bg-blue-500/10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <BookOpen color="#3b82f6" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Feature Guide & FAQ</Text>
@@ -911,10 +931,10 @@ export default function AccountScreen() {
 
           <TouchableOpacity 
             onPress={() => Linking.openURL('mailto:justinelance0067@gmail.com?subject=SPENT%20Support')}
-            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-slate-100 dark:border-slate-800/60`}
+            style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-slate-100 dark:bg-slate-800/40 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <CircleHelp color="#64748b" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Contact Support</Text>
@@ -932,14 +952,14 @@ export default function AccountScreen() {
             style={tw`flex-row items-center justify-between p-3.5 min-h-[48px]`}
           >
             <View style={tw`flex-row items-center`}>
-              <View style={tw`w-9 h-9 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center mr-3`}>
+              <View style={tw`w-9 h-9 bg-slate-100 dark:bg-slate-800/40 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`}>
                 <FileText color="#64748b" size={18} />
               </View>
               <Text style={[tw`text-sm font-bold`, { color: textPrimary }]}>Terms & Privacy Guarantee</Text>
             </View>
             <ChevronRight color={textMuted} size={18} />
           </TouchableOpacity>
-        </View>
+        </GlassView>
 
         {/* App Version Info */}
         <View style={tw`items-center mb-6`}>
@@ -949,7 +969,7 @@ export default function AccountScreen() {
 
         {/* Log Out / Exit Button */}
         <TouchableOpacity 
-          style={tw`flex-row items-center justify-center py-3.5 min-h-[48px] bg-rose-50 dark:bg-rose-500/10 rounded-2xl border border-rose-100 dark:border-rose-500/20`}
+          style={tw`flex-row items-center justify-center py-3.5 min-h-[48px] bg-rose-500/10 dark:bg-rose-500/15 rounded-2xl border border-rose-500/25 shadow-sm`}
           onPress={() => exitSession()}
         >
           <LogOut color="#ef4444" size={18} />
@@ -1279,7 +1299,6 @@ export default function AccountScreen() {
           </View>
         </View>
       </Modal>
-
-    </View>
+    </AmbientBackground>
   );
 }

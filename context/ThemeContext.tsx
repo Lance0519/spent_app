@@ -63,7 +63,13 @@ export interface ThemeTextTokens {
   textOnAccent: string;
 }
 
-interface ThemeContextType extends ThemeTextTokens {
+export interface ThemeGlassTokens {
+  glassBg: string;
+  glassBorder: string;
+  glassSurface: string;
+}
+
+interface ThemeContextType extends ThemeTextTokens, ThemeGlassTokens {
   accentKey: AccentPaletteKey;
   accentColor: string;
   palette: PaletteConfig;
@@ -86,6 +92,9 @@ const ThemeContext = createContext<ThemeContextType>({
   textSecondary: '#71717A',
   textMuted: '#A1A1AA',
   textOnAccent: '#FFFFFF',
+  glassBg: 'rgba(255, 255, 255, 0.75)',
+  glassBorder: 'rgba(255, 255, 255, 0.65)',
+  glassSurface: 'rgba(244, 239, 248, 0.65)',
   currency: 'PHP',
   currencySymbol: '₱',
   formatCurrency: (val: number) => `₱${val.toFixed(2)}`,
@@ -160,6 +169,10 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const textMuted = isDark ? '#71717A' : '#A1A1AA';
   const textOnAccent = getContrastTextColor(accentColor);
 
+  const glassBg = isDark ? 'rgba(35, 32, 42, 0.72)' : 'rgba(255, 255, 255, 0.75)';
+  const glassBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.65)';
+  const glassSurface = isDark ? 'rgba(45, 41, 54, 0.55)' : 'rgba(244, 239, 248, 0.65)';
+
   return (
     <ThemeContext.Provider value={{ 
       accentKey, 
@@ -174,6 +187,9 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       textSecondary,
       textMuted,
       textOnAccent,
+      glassBg,
+      glassBorder,
+      glassSurface,
       setAccentColor, 
       toggleDarkMode,
       setColorScheme

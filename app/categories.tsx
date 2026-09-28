@@ -30,6 +30,8 @@ import tw, { useAppColorScheme } from 'twrnc';
 import { getCategories, addCategory, updateCategory, deleteCategory, seedDefaultCategories, Category } from '../db/database';
 import { useTheme } from '../context/ThemeContext';
 import { IconMap, AVAILABLE_ICONS } from '../utils/Icons';
+import { AmbientBackground } from '../components/AmbientBackground';
+import { GlassView } from '../components/GlassView';
 
 const AVAILABLE_COLORS = [
   '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e', '#10b981', 
@@ -235,192 +237,196 @@ export default function CategoriesScreen() {
   const PreviewIcon = IconMap[icon] || Tag;
 
   return (
-    <SafeAreaView style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218]`}>
-      
-      {/* Top Header */}
-      <View style={tw`flex-row items-center justify-between px-6 py-4 bg-[#FEF7FF] dark:bg-[#141218] border-b border-slate-100 dark:border-slate-800`}>
-        <View style={tw`flex-row items-center flex-1 mr-3`}>
-          <TouchableOpacity onPress={() => router.back()} style={tw`mr-3 p-2 -ml-2 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full`}>
-            <ChevronLeft color={textSecondary} size={24} />
-          </TouchableOpacity>
-          <View>
-            <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>Categories</Text>
-            <Text style={[tw`text-xs`, { color: textSecondary }]}>
-              {counts.all} categories configured
-            </Text>
+    <AmbientBackground style={tw`flex-1 relative`}>
+      <SafeAreaView style={tw`flex-1`}>
+        
+        {/* Top Header */}
+        <View style={tw`flex-row items-center justify-between px-6 py-4 border-b border-white/20 dark:border-white/5`}>
+          <View style={tw`flex-row items-center flex-1 mr-3`}>
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              style={tw`mr-3 w-10 h-10 items-center justify-center bg-white/50 dark:bg-white/10 rounded-full border border-white/40 dark:border-white/10`}
+            >
+              <ChevronLeft color={textSecondary} size={22} />
+            </TouchableOpacity>
+            <View>
+              <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>Categories</Text>
+              <Text style={[tw`text-xs`, { color: textSecondary }]}>
+                {counts.all} categories configured
+              </Text>
+            </View>
+          </View>
+
+          {/* Action Header Buttons */}
+          <View style={tw`flex-row items-center gap-2`}>
+            <TouchableOpacity 
+              onPress={handleRestoreDefaults}
+              style={tw`w-10 h-10 items-center justify-center bg-white/50 dark:bg-white/10 rounded-full border border-white/40 dark:border-white/10`}
+              accessibilityLabel="Restore default categories"
+            >
+              <RotateCcw size={16} color={textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={handleOpenAdd}
+              style={[tw`flex-row items-center px-4 py-2 rounded-full shadow-sm border border-white/30 dark:border-white/10`, { backgroundColor: accentColor }]}
+            >
+              <Plus color={textOnAccent} size={18} style={tw`mr-1.5`} />
+              <Text style={[tw`font-bold text-xs`, { color: textOnAccent }]}>Add</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Action Header Buttons */}
-        <View style={tw`flex-row items-center gap-2`}>
-          <TouchableOpacity 
-            onPress={handleRestoreDefaults}
-            style={tw`p-2.5 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full`}
-            accessibilityLabel="Restore default categories"
-          >
-            <RotateCcw size={16} color={textSecondary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            onPress={handleOpenAdd}
-            style={[tw`flex-row items-center px-4 py-2 rounded-full shadow-sm`, { backgroundColor: accentColor }]}
-          >
-            <Plus color={textOnAccent} size={18} style={tw`mr-1.5`} />
-            <Text style={[tw`font-bold text-xs`, { color: textOnAccent }]}>Add</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Segmented Type Filter Tabs */}
-      <View style={tw`px-6 pt-4 pb-2`}>
-        <View style={tw`flex-row bg-[#F4EFF4] dark:bg-[#2B2930] p-1 rounded-2xl`}>
-          {[
-            { key: 'all', label: 'All', count: counts.all },
-            { key: 'expense', label: 'Expenses', count: counts.expense },
-            { key: 'income', label: 'Income', count: counts.income },
-            { key: 'loan', label: 'Loans', count: counts.loan }
-          ].map(tab => {
-            const isSelected = activeTab === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key as FilterTab)}
-                style={[
-                  tw`flex-1 py-2 rounded-xl items-center flex-row justify-center`,
-                  isSelected 
-                    ? [{ backgroundColor: accentColor, shadowColor: accentColor, shadowOpacity: 0.2, shadowRadius: 4 }]
-                    : tw`bg-transparent`
-                ]}
-              >
-                <Text style={[
-                  tw`font-bold text-xs`,
-                  { color: isSelected ? textOnAccent : textSecondary }
-                ]}>
-                  {tab.label}
-                </Text>
-                <View style={[
-                  tw`ml-1 px-1.5 py-0.2 rounded-full`,
-                  isSelected ? { backgroundColor: 'rgba(255,255,255,0.25)' } : tw`bg-black/5 dark:bg-white/10`
-                ]}>
-                  <Text style={[
-                    tw`text-[10px] font-bold`,
-                    { color: isSelected ? textOnAccent : textMuted }
-                  ]}>
-                    {tab.count}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Categories List View */}
-      <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1 px-6 pt-2`} contentContainerStyle={tw`pb-20`}>
-        {filteredCategories.length === 0 ? (
-          <View style={tw`items-center justify-center py-20`}>
-            <View style={tw`w-16 h-16 rounded-full bg-[#F3EDF7] dark:bg-[#211F26] items-center justify-center mb-3`}>
-              <Tag size={32} color={textMuted} style={tw`opacity-40`} />
-            </View>
-            <Text style={[tw`text-base font-bold mb-1`, { color: textPrimary }]}>
-              No {activeTab !== 'all' ? activeTab : ''} categories yet
-            </Text>
-            <Text style={[tw`text-xs text-center mb-5`, { color: textSecondary }]}>
-              Create custom categories to organize your financial transactions.
-            </Text>
-            <View style={tw`flex-row items-center gap-3`}>
-              <TouchableOpacity
-                onPress={handleOpenAdd}
-                style={[tw`flex-row items-center px-4 py-2.5 rounded-2xl shadow-sm`, { backgroundColor: accentColor }]}
-              >
-                <Plus color={textOnAccent} size={16} style={tw`mr-1.5`} />
-                <Text style={[tw`font-bold text-xs`, { color: textOnAccent }]}>Add Custom</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={handleRestoreDefaults}
-                style={tw`flex-row items-center px-4 py-2.5 rounded-2xl bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-200/60 dark:border-slate-700/60`}
-              >
-                <RotateCcw color={textSecondary} size={16} style={tw`mr-1.5`} />
-                <Text style={[tw`font-bold text-xs`, { color: textSecondary }]}>Restore Built-in</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-3xl p-2 mb-6 border border-slate-100 dark:border-slate-800`}>
-            {filteredCategories.map((cat, index) => {
-              const IconComp = IconMap[cat.icon] || Tag;
-              const isLast = index === filteredCategories.length - 1;
-
+        {/* Segmented Type Filter Tabs */}
+        <View style={tw`px-6 pt-4 pb-2`}>
+          <GlassView intensity={35} borderRadius={20} contentStyle={tw`flex-row p-1`}>
+            {[
+              { key: 'all', label: 'All', count: counts.all },
+              { key: 'expense', label: 'Expenses', count: counts.expense },
+              { key: 'income', label: 'Income', count: counts.income },
+              { key: 'loan', label: 'Loans', count: counts.loan }
+            ].map(tab => {
+              const isSelected = activeTab === tab.key;
               return (
-                <View 
-                  key={cat.id} 
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={() => setActiveTab(tab.key as FilterTab)}
                   style={[
-                    tw`flex-row items-center justify-between p-3.5`,
-                    !isLast && tw`border-b border-slate-200/60 dark:border-slate-700/60`
+                    tw`flex-1 py-2 rounded-xl items-center flex-row justify-center`,
+                    isSelected 
+                      ? [{ backgroundColor: accentColor, shadowColor: accentColor, shadowOpacity: 0.2, shadowRadius: 4 }]
+                      : tw`bg-transparent`
                   ]}
                 >
-                  <View style={tw`flex-row items-center flex-1 mr-2`}>
-                    {/* Category Icon Badge */}
-                    <View style={[
-                      tw`w-11 h-11 rounded-2xl items-center justify-center mr-3.5 shadow-sm`, 
-                      { backgroundColor: `${cat.color}20` }
+                  <Text style={[
+                    tw`font-bold text-xs`,
+                    { color: isSelected ? textOnAccent : textSecondary }
+                  ]}>
+                    {tab.label}
+                  </Text>
+                  <View style={[
+                    tw`ml-1 px-1.5 py-0.2 rounded-full`,
+                    isSelected ? { backgroundColor: 'rgba(255,255,255,0.25)' } : tw`bg-black/5 dark:bg-white/10`
+                  ]}>
+                    <Text style={[
+                      tw`text-[10px] font-bold`,
+                      { color: isSelected ? textOnAccent : textMuted }
                     ]}>
-                      <IconComp size={20} color={cat.color} />
-                    </View>
+                      {tab.count}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </GlassView>
+        </View>
 
-                    {/* Category Info */}
-                    <View style={tw`flex-1`}>
-                      <Text style={[tw`text-base font-bold tracking-tight`, { color: textPrimary }]} numberOfLines={1}>
-                        {cat.name}
-                      </Text>
-                      <View style={tw`flex-row items-center mt-1`}>
-                        <View style={[
-                          tw`px-2 py-0.5 rounded-full flex-row items-center`,
-                          cat.type === 'expense' 
-                            ? tw`bg-rose-100 dark:bg-rose-500/15`
-                            : cat.type === 'income'
-                            ? tw`bg-emerald-100 dark:bg-emerald-500/15`
-                            : tw`bg-amber-100 dark:bg-amber-500/15`
-                        ]}>
-                          {cat.type === 'expense' && <TrendingDown size={10} color="#f43f5e" style={tw`mr-1`} />}
-                          {cat.type === 'income' && <TrendingUp size={10} color="#10b981" style={tw`mr-1`} />}
-                          {cat.type === 'loan' && <Landmark size={10} color="#f59e0b" style={tw`mr-1`} />}
-                          <Text style={[
-                            tw`text-[10px] font-black uppercase tracking-wider`,
+        {/* Categories List View */}
+        <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1 px-6 pt-2`} contentContainerStyle={tw`pb-20`}>
+          {filteredCategories.length === 0 ? (
+            <GlassView intensity={30} borderRadius={24} style={tw`py-16 px-6 items-center`} contentStyle={tw`items-center`}>
+              <View style={tw`w-16 h-16 rounded-full bg-white/40 dark:bg-white/10 items-center justify-center mb-3 border border-white/20 dark:border-white/5`}>
+                <Tag size={32} color={textMuted} style={tw`opacity-40`} />
+              </View>
+              <Text style={[tw`text-base font-bold mb-1`, { color: textPrimary }]}>
+                No {activeTab !== 'all' ? activeTab : ''} categories yet
+              </Text>
+              <Text style={[tw`text-xs text-center mb-5`, { color: textSecondary }]}>
+                Create custom categories to organize your financial transactions.
+              </Text>
+              <View style={tw`flex-row items-center gap-3`}>
+                <TouchableOpacity
+                  onPress={handleOpenAdd}
+                  style={[tw`flex-row items-center px-4 py-2.5 rounded-2xl shadow-sm`, { backgroundColor: accentColor }]}
+                >
+                  <Plus color={textOnAccent} size={16} style={tw`mr-1.5`} />
+                  <Text style={[tw`font-bold text-xs`, { color: textOnAccent }]}>Add Custom</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleRestoreDefaults}
+                  style={tw`flex-row items-center px-4 py-2.5 rounded-2xl bg-white/40 dark:bg-white/10 border border-white/30 dark:border-white/10`}
+                >
+                  <RotateCcw color={textSecondary} size={16} style={tw`mr-1.5`} />
+                  <Text style={[tw`font-bold text-xs`, { color: textSecondary }]}>Restore Built-in</Text>
+                </TouchableOpacity>
+              </View>
+            </GlassView>
+          ) : (
+            <GlassView intensity={35} borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-2`}>
+              {filteredCategories.map((cat, index) => {
+                const IconComp = IconMap[cat.icon] || Tag;
+                const isLast = index === filteredCategories.length - 1;
+
+                return (
+                  <View 
+                    key={cat.id} 
+                    style={[
+                      tw`flex-row items-center justify-between p-3.5`,
+                      !isLast && tw`border-b border-white/10 dark:border-white/5`
+                    ]}
+                  >
+                    <View style={tw`flex-row items-center flex-1 mr-2`}>
+                      {/* Category Icon Badge */}
+                      <View style={[
+                        tw`w-11 h-11 rounded-2xl items-center justify-center mr-3.5 shadow-sm border border-white/20 dark:border-white/5`, 
+                        { backgroundColor: `${cat.color}20` }
+                      ]}>
+                        <IconComp size={20} color={cat.color} />
+                      </View>
+
+                      {/* Category Info */}
+                      <View style={tw`flex-1`}>
+                        <Text style={[tw`text-base font-bold tracking-tight`, { color: textPrimary }]} numberOfLines={1}>
+                          {cat.name}
+                        </Text>
+                        <View style={tw`flex-row items-center mt-1`}>
+                          <View style={[
+                            tw`px-2 py-0.5 rounded-full flex-row items-center border border-white/20 dark:border-white/5`,
                             cat.type === 'expense' 
-                              ? tw`text-rose-600 dark:text-rose-400`
+                              ? tw`bg-rose-500/15`
                               : cat.type === 'income'
-                              ? tw`text-emerald-600 dark:text-emerald-400`
-                              : tw`text-amber-600 dark:text-amber-400`
+                              ? tw`bg-emerald-500/15`
+                              : tw`bg-amber-500/15`
                           ]}>
-                            {cat.type}
-                          </Text>
+                            {cat.type === 'expense' && <TrendingDown size={10} color="#f43f5e" style={tw`mr-1`} />}
+                            {cat.type === 'income' && <TrendingUp size={10} color="#10b981" style={tw`mr-1`} />}
+                            {cat.type === 'loan' && <Landmark size={10} color="#f59e0b" style={tw`mr-1`} />}
+                            <Text style={[
+                              tw`text-[10px] font-black uppercase tracking-wider`,
+                              cat.type === 'expense' 
+                                ? tw`text-rose-600 dark:text-rose-400`
+                                : cat.type === 'income'
+                                ? tw`text-emerald-600 dark:text-emerald-400`
+                                : tw`text-amber-600 dark:text-amber-400`
+                            ]}>
+                              {cat.type}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </View>
-                  </View>
 
-                  {/* Actions */}
-                  <View style={tw`flex-row items-center gap-1.5`}>
-                    <TouchableOpacity 
-                      onPress={() => handleOpenEdit(cat)} 
-                      style={tw`p-2.5 bg-[#F3EDF7] dark:bg-[#211F26] rounded-xl`}
-                    >
-                      <Edit2 size={16} color={textSecondary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => handleDelete(cat)} 
-                      style={tw`p-2.5 bg-rose-50 dark:bg-rose-500/10 rounded-xl`}
-                    >
-                      <Trash2 size={16} color="#f43f5e" />
-                    </TouchableOpacity>
+                    {/* Actions */}
+                    <View style={tw`flex-row items-center gap-1.5`}>
+                      <TouchableOpacity 
+                        onPress={() => handleOpenEdit(cat)} 
+                        style={tw`w-9 h-9 items-center justify-center bg-white/40 dark:bg-white/10 rounded-full border border-white/20 dark:border-white/5`}
+                      >
+                        <Edit2 size={15} color={textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        onPress={() => handleDelete(cat)} 
+                        style={tw`w-9 h-9 items-center justify-center bg-rose-500/10 dark:bg-rose-500/15 rounded-full border border-rose-500/20`}
+                      >
+                        <Trash2 size={15} color="#f43f5e" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
+                );
+              })}
+            </GlassView>
+          )}
       </ScrollView>
 
       {/* Slide-Up Modal: Add & Edit Category */}
@@ -627,5 +633,6 @@ export default function CategoriesScreen() {
       </Modal>
 
     </SafeAreaView>
+  </AmbientBackground>
   );
 }
