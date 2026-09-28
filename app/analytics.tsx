@@ -247,12 +247,12 @@ export default function AnalyticsScreen() {
         <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1 px-5 pt-4`} contentContainerStyle={tw`pb-12`}>
           
           {/* Month Selector Bar */}
-          <GlassView intensity={35} borderRadius={20} style={tw`mb-5`} contentStyle={tw`flex-row items-center justify-between p-2`}>
+          <GlassView level="control" borderRadius={20} style={tw`mb-5`} contentStyle={tw`flex-row items-center justify-between p-2`}>
             <TouchableOpacity 
               onPress={handlePrevMonth}
               style={tw`w-10 h-10 bg-white/40 dark:bg-white/10 rounded-xl items-center justify-center border border-white/40 dark:border-white/5`}
             >
-              <ChevronLeft size={20} color={textSecondary} />
+              <ChevronLeft size={20} color={textPrimary} />
             </TouchableOpacity>
 
             <View style={tw`flex-row items-center`}>
@@ -266,7 +266,7 @@ export default function AnalyticsScreen() {
               onPress={handleNextMonth}
               style={tw`w-10 h-10 bg-white/40 dark:bg-white/10 rounded-xl items-center justify-center border border-white/40 dark:border-white/5`}
             >
-              <ChevronRight size={20} color={textSecondary} />
+              <ChevronRight size={20} color={textPrimary} />
             </TouchableOpacity>
           </GlassView>
 
@@ -274,7 +274,7 @@ export default function AnalyticsScreen() {
           <View style={tw`flex-row gap-2 mb-5`}>
             
             {/* Income Card */}
-            <GlassView intensity={30} borderRadius={20} style={tw`flex-1`} contentStyle={tw`p-3`}>
+            <GlassView level="container" borderRadius={20} style={tw`flex-1`} contentStyle={tw`p-3`}>
               <View style={tw`w-7 h-7 rounded-full bg-emerald-500/15 items-center justify-center mb-1.5 border border-emerald-500/20`}>
                 <TrendingUp size={15} color="#10b981" />
               </View>
@@ -289,7 +289,7 @@ export default function AnalyticsScreen() {
             </GlassView>
 
             {/* Expenses Card */}
-            <GlassView intensity={30} borderRadius={20} style={tw`flex-1`} contentStyle={tw`p-3`}>
+            <GlassView level="container" borderRadius={20} style={tw`flex-1`} contentStyle={tw`p-3`}>
               <View style={tw`w-7 h-7 rounded-full bg-rose-500/15 items-center justify-center mb-1.5 border border-rose-500/20`}>
                 <TrendingDown size={15} color="#f43f5e" />
               </View>
@@ -305,7 +305,7 @@ export default function AnalyticsScreen() {
 
             {/* Net Savings Card */}
             <GlassView 
-              intensity={30} 
+              level="container" 
               borderRadius={20} 
               style={[tw`flex-1`, summaryTotals.netSavings < 0 && tw`bg-rose-500/10 border-rose-500/30`]} 
               contentStyle={tw`p-3`}
@@ -328,7 +328,7 @@ export default function AnalyticsScreen() {
           </View>
 
         {/* SECTION 1: Category Expense Breakdown (Donut Chart & Legend) */}
-        <GlassView intensity={35} borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-5`}>
+        <GlassView level="container" borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-5`}>
           <View style={tw`flex-row items-center justify-between mb-4`}>
             <View style={tw`flex-row items-center flex-1 mr-2`}>
               <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-2.5 border border-white/20 dark:border-white/5`, { backgroundColor: `${accentColor}20` }]}>
@@ -395,7 +395,7 @@ export default function AnalyticsScreen() {
         </GlassView>
 
         {/* SECTION 2: 6-Month Income vs. Expense (Bar Chart) */}
-        <GlassView intensity={35} borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-4`}>
+        <GlassView level="container" borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-4`}>
           {/* Card Header: Title & Subtitle stacked cleanly */}
           <View style={tw`mb-2`}>
             <View style={tw`flex-row items-center`}>
@@ -450,7 +450,7 @@ export default function AnalyticsScreen() {
         </GlassView>
 
         {/* SECTION 3: Top 3 Biggest Spends */}
-        <GlassView intensity={35} borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-4`}>
+        <GlassView level="container" borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-4`}>
           <View style={tw`flex-row items-center justify-between mb-4`}>
             <View style={tw`flex-row items-center flex-1 mr-2`}>
               <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-2.5 border border-white/20 dark:border-white/5`, { backgroundColor: `${accentColor}20` }]}>

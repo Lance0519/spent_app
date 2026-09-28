@@ -178,7 +178,7 @@ export default function Dashboard() {
         </LinearGradient>
       </View>
 
-      {/* Quick Actions Row with Frosted Glass Buttons */}
+      {/* Quick Actions Row with Frosted Glass Controls */}
       <View style={tw`flex-row justify-between px-8 py-5`}>
         {[
           { icon: Target, label: 'Budget', color: '#8b5cf6', action: () => router.push('/budgets') },
@@ -193,14 +193,14 @@ export default function Dashboard() {
             activeOpacity={0.7}
           >
             <GlassView 
-              intensity={35} 
-              borderRadius={26}
+              level="control" 
+              borderRadius={24}
               style={tw`w-13 h-13 mb-1.5`}
               contentStyle={tw`w-full h-full items-center justify-center`}
             >
               <item.icon size={22} color={item.color} />
             </GlassView>
-            <Text style={[tw`text-xs font-bold`, { color: textSecondary }]}>{item.label}</Text>
+            <Text style={[tw`text-xs font-bold`, { color: textPrimary }]}>{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -215,8 +215,8 @@ export default function Dashboard() {
         </View>
 
         <GlassView 
-          intensity={35} 
-          borderRadius={28} 
+          level="container" 
+          borderRadius={24} 
           style={tw`flex-1`}
           contentStyle={tw`p-3 flex-1`}
         >

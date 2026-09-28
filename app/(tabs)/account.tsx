@@ -597,7 +597,7 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Wallets & Core Assets
         </Text>
-        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
+        <GlassView level="container" borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
           
           {/* Manage Accounts & Wallets */}
           <TouchableOpacity 
@@ -668,7 +668,7 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Reports & Planning
         </Text>
-        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
+        <GlassView level="container" borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
           
           <TouchableOpacity 
             onPress={() => router.push('/analytics')} 
@@ -797,7 +797,7 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Security & Notifications
         </Text>
-        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
+        <GlassView level="container" borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
           
           <View style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}>
             <View style={tw`flex-row items-center`}>
@@ -853,7 +853,7 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Data Vault & Export
         </Text>
-        <GlassView intensity={35} borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
+        <GlassView level="container" borderRadius={24} style={tw`mb-5`} contentStyle={tw`p-1`}>
           
           <TouchableOpacity 
             onPress={handleExportCSV} 
@@ -915,7 +915,7 @@ export default function AccountScreen() {
         <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider ml-1`, { color: textMuted }]}>
           Help & Information
         </Text>
-        <GlassView intensity={35} borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-1`}>
+        <GlassView level="container" borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-1`}>
           <TouchableOpacity 
             onPress={() => setActiveModal('faq')}
             style={tw`flex-row items-center justify-between p-3.5 min-h-[48px] border-b border-white/20 dark:border-white/5`}

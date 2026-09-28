@@ -26,28 +26,30 @@ export default function TabLayout() {
   const renderTabBarBackground = () => (
     <View style={[StyleSheet.absoluteFill, { borderRadius: 28, overflow: 'hidden' }]}>
       <BlurView
-        intensity={55}
+        intensity={85}
         tint={isDark ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
       <LinearGradient
         colors={
           isDark
-            ? ['rgba(35, 32, 44, 0.78)', 'rgba(22, 20, 28, 0.70)']
-            : ['rgba(255, 255, 255, 0.85)', 'rgba(244, 239, 248, 0.65)']
+            ? ['rgba(24, 21, 33, 0.95)', 'rgba(16, 14, 22, 0.92)']
+            : ['rgba(255, 255, 255, 0.96)', 'rgba(248, 250, 252, 0.92)']
         }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
       <LinearGradient
         colors={
           isDark
-            ? ['rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0.01)', 'rgba(0, 0, 0, 0.08)']
-            : ['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.20)', 'rgba(255, 255, 255, 0.0)']
+            ? ['rgba(255, 255, 255, 0.16)', 'rgba(255, 255, 255, 0.02)', 'rgba(0, 0, 0, 0.0)']
+            : ['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.25)', 'rgba(255, 255, 255, 0.0)']
         }
         start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 0.45 }}
+        end={{ x: 0, y: 0.40 }}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />

@@ -15,6 +15,7 @@ export interface GlassViewProps {
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
+  level?: 'background' | 'container' | 'control' | 1 | 2 | 3;
   intensity?: number;
   tint?: 'light' | 'dark' | 'default' | 'accent';
   borderRadius?: number;
@@ -30,7 +31,8 @@ export const GlassView: React.FC<GlassViewProps> = ({
   children,
   style,
   contentStyle,
-  intensity = 40,
+  level = 'container',
+  intensity,
   tint = 'default',
   borderRadius = 24,
   borderWidth = 1,
@@ -45,24 +47,42 @@ export const GlassView: React.FC<GlassViewProps> = ({
   const isDarkMode = tint === 'dark' || (tint === 'default' && isDark);
   const isAccent = tint === 'accent';
 
-  // Specular border color
+  // Standard 3-Tier Hierarchy Mapping
+  const levelKey = typeof level === 'number' 
+    ? (level === 1 ? 'background' : level === 3 ? 'control' : 'container') 
+    : level;
+
+  // Resolved intensity based on hierarchy level
+  const resolvedIntensity = intensity ?? (
+    levelKey === 'background' ? 25 : levelKey === 'control' ? 70 : 40
+  );
+
+  // Specular 1px border stroke color
   const defaultBorderColor = isAccent
     ? `${accentColor}40`
     : isDarkMode
-    ? 'rgba(255, 255, 255, 0.12)'
-    : 'rgba(255, 255, 255, 0.70)';
+    ? (levelKey === 'control' ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.14)')
+    : (levelKey === 'control' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.65)');
 
-  // Frosted acrylic tint colors
+  // Frosted acrylic tint colors per hierarchy level & theme mode
   const gradientColors = isAccent
     ? ([`${accentColor}25`, `${accentColor}12`] as const)
     : isDarkMode
-    ? (['rgba(35, 32, 42, 0.72)', 'rgba(22, 20, 27, 0.65)'] as const)
-    : (['rgba(255, 255, 255, 0.82)', 'rgba(244, 239, 248, 0.60)'] as const);
+    ? (levelKey === 'background'
+        ? (['rgba(20, 18, 28, 0.50)', 'rgba(14, 12, 20, 0.40)'] as const)
+        : levelKey === 'control'
+        ? (['rgba(36, 32, 48, 0.82)', 'rgba(24, 21, 33, 0.75)'] as const)
+        : (['rgba(28, 25, 38, 0.62)', 'rgba(18, 16, 26, 0.52)'] as const))
+    : (levelKey === 'background'
+        ? (['rgba(255, 255, 255, 0.70)', 'rgba(248, 250, 252, 0.50)'] as const)
+        : levelKey === 'control'
+        ? (['rgba(255, 255, 255, 0.94)', 'rgba(248, 250, 252, 0.88)'] as const)
+        : (['rgba(255, 255, 255, 0.86)', 'rgba(248, 250, 252, 0.72)'] as const));
 
-  // Top-down specular light shimmer colors
+  // Top specular shimmer light bounce gradient
   const specularColors = isDarkMode
-    ? (['rgba(255, 255, 255, 0.10)', 'rgba(255, 255, 255, 0.01)', 'rgba(0, 0, 0, 0.05)'] as const)
-    : (['rgba(255, 255, 255, 0.90)', 'rgba(255, 255, 255, 0.20)', 'rgba(255, 255, 255, 0.0)'] as const);
+    ? (['rgba(255, 255, 255, 0.14)', 'rgba(255, 255, 255, 0.02)', 'rgba(0, 0, 0, 0.0)'] as const)
+    : (['rgba(255, 255, 255, 0.85)', 'rgba(255, 255, 255, 0.20)', 'rgba(255, 255, 255, 0.0)'] as const);
 
   const containerStyle: ViewStyle = {
     borderRadius,
@@ -70,56 +90,58 @@ export const GlassView: React.FC<GlassViewProps> = ({
     borderColor: borderColor || defaultBorderColor,
     overflow: 'hidden',
     position: 'relative',
-    // Soft ambient glass drop shadow
+    // Soft subtle shadows (no heavy extruded neumorphism)
     ...Platform.select({
       ios: {
-        shadowColor: isDarkMode ? '#000000' : '#4A3B52',
-        shadowOffset: { width: 0, height: isDarkMode ? 6 : 4 },
-        shadowOpacity: isDarkMode ? 0.25 : 0.06,
-        shadowRadius: isDarkMode ? 14 : 10,
+        shadowColor: isDarkMode ? '#000000' : '#475569',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDarkMode ? 0.15 : 0.04,
+        shadowRadius: 6,
       },
       android: {
-        elevation: isDarkMode ? 3 : 2,
+        elevation: levelKey === 'control' ? 2 : 1,
       },
       web: {
-        backdropFilter: `blur(${intensity}px)`,
-        WebkitBackdropFilter: `blur(${intensity}px)`,
+        backdropFilter: `blur(${resolvedIntensity}px)`,
+        WebkitBackdropFilter: `blur(${resolvedIntensity}px)`,
         boxShadow: isDarkMode 
-          ? '0 6px 20px rgba(0, 0, 0, 0.35)' 
-          : '0 4px 16px rgba(100, 80, 120, 0.08)',
+          ? '0 4px 16px rgba(0, 0, 0, 0.25)' 
+          : '0 2px 12px rgba(71, 85, 105, 0.05)',
       } as any,
     }),
   };
 
   const innerContent = (
     <>
-      {/* Native Hardware Blur Layer */}
+      {/* Native Hardware Blur Layer - pointerEvents="none" MUST be set for Android click pass-through! */}
       <BlurView
-        intensity={intensity}
+        intensity={resolvedIntensity}
         tint={isDarkMode ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
 
-      {/* Frosted Acrylic Tint Overlay */}
+      {/* Frosted Acrylic Tint Overlay - pointerEvents="none" */}
       <LinearGradient
         colors={gradientColors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
+        pointerEvents="none"
       />
 
-      {/* Top Specular Shimmer Light Bounce */}
+      {/* Top Specular Shimmer Light Bounce - pointerEvents="none" */}
       {specular && (
         <LinearGradient
           colors={specularColors}
           start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 0.4 }}
+          end={{ x: 0, y: 0.35 }}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
       )}
 
-      {/* Actual Component Children */}
+      {/* Actual Component Children Content */}
       <View style={[styles.content, contentStyle]} pointerEvents={pointerEvents}>
         {children}
       </View>

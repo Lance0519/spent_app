@@ -22,11 +22,11 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({
   // Harmonious secondary color for atmospheric depth
   const secondaryColor = accentColor.toLowerCase() === '#6366f1' ? '#3B82F6' : '#8B5CF6';
 
-  const orb1Opacity = (isDark ? 0.22 : 0.14) * mult;
-  const orb2Opacity = (isDark ? 0.16 : 0.10) * mult;
-  const orb3Opacity = (isDark ? 0.14 : 0.08) * mult;
+  const orb1Opacity = (isDark ? 0.32 : 0.16) * mult;
+  const orb2Opacity = (isDark ? 0.24 : 0.12) * mult;
+  const orb3Opacity = (isDark ? 0.20 : 0.10) * mult;
 
-  const baseBg = isDark ? '#141218' : '#FEF7FF';
+  const baseBg = isDark ? '#0F0D15' : '#F8FAFC';
 
   return (
     <View style={[styles.container, { backgroundColor: baseBg }, style]}>

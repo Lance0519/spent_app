@@ -160,9 +160,9 @@ export default function TransactionsScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Real-time Search Input with GlassView */}
+          {/* Real-time Search Input with GlassView Control */}
           <GlassView 
-            intensity={35} 
+            level="control" 
             borderRadius={20} 
             style={tw`mb-4`}
             contentStyle={tw`flex-row items-center px-3.5 py-2.5 min-h-[48px]`}
@@ -195,12 +195,12 @@ export default function TransactionsScreen() {
                     isSelected
                       ? [{ backgroundColor: accentColor, borderColor: `${accentColor}80` }]
                       : {
-                          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.65)',
-                          borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.60)'
+                          backgroundColor: isDark ? 'rgba(36, 32, 48, 0.70)' : 'rgba(255, 255, 255, 0.85)',
+                          borderColor: isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(255, 255, 255, 0.65)'
                         }
                   ]}
                 >
-                  <Text style={[tw`font-bold capitalize text-xs tracking-wide`, { color: isSelected ? textOnAccent : textSecondary }]}>
+                  <Text style={[tw`font-bold capitalize text-xs tracking-wide`, { color: isSelected ? textOnAccent : textPrimary }]}>
                     {f}
                   </Text>
                 </TouchableOpacity>
