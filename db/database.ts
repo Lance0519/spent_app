@@ -568,34 +568,54 @@ export const updateUserProfile = (
   hide_balance_default?: number, 
   accent_color?: string
 ) => {
-  const db = getDB();
-  const current = getUserProfile();
-  const newName = name !== undefined ? name : current.name;
-  const newEmail = email !== undefined ? email : current.email;
-  const newCurrency = currency !== undefined ? currency : current.currency;
-  const newHide = hide_balance_default !== undefined ? hide_balance_default : current.hide_balance_default;
-  const newAccent = accent_color !== undefined ? accent_color : current.accent_color;
+  try {
+    const db = getDB();
+    const current = getUserProfile();
+    const newName = name !== undefined && name !== null ? name : (current?.name || 'John Doe');
+    const newEmail = email !== undefined && email !== null ? email : (current?.email || 'john.doe@example.com');
+    const newCurrency = currency !== undefined && currency !== null ? currency : (current?.currency || 'PHP');
+    const newHide = hide_balance_default !== undefined && hide_balance_default !== null 
+      ? (typeof hide_balance_default === 'boolean' ? (hide_balance_default ? 1 : 0) : Number(hide_balance_default))
+      : (current?.hide_balance_default ?? 0);
+    const newAccent = accent_color !== undefined && accent_color !== null ? accent_color : (current?.accent_color || 'emerald');
+    const bioEnabled = typeof current?.biometrics_enabled === 'boolean' 
+      ? (current.biometrics_enabled ? 1 : 0) 
+      : (current?.biometrics_enabled ?? 0);
 
-  db.runSync(
-    `INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default)
-     VALUES (1, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET 
-       name=excluded.name, 
-       email=excluded.email, 
-       accent_color=excluded.accent_color, 
-       currency=excluded.currency, 
-       hide_balance_default=excluded.hide_balance_default`, 
-    [newName, newEmail, current.biometrics_enabled, newAccent, newCurrency, newHide]
-  );
+    const res = db.runSync(
+      `UPDATE user_profile 
+       SET name = ?, email = ?, biometrics_enabled = ?, accent_color = ?, currency = ?, hide_balance_default = ? 
+       WHERE id = 1`,
+      [newName, newEmail, bioEnabled, newAccent, newCurrency, newHide]
+    );
+
+    if ((res as any)?.changes === 0) {
+      db.runSync(
+        `INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default)
+         VALUES (1, ?, ?, ?, ?, ?, ?)`,
+        [newName, newEmail, bioEnabled, newAccent, newCurrency, newHide]
+      );
+    }
+  } catch (err) {
+    console.error('Error updating user profile in DB:', err);
+  }
 };
 
 export const updateBiometricsEnabled = (enabled: boolean) => {
-  const db = getDB();
-  const current = getUserProfile();
-  db.runSync(
-    'INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default) VALUES (1, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET biometrics_enabled=excluded.biometrics_enabled', 
-    [current.name, current.email, enabled ? 1 : 0, current.accent_color, current.currency, current.hide_balance_default]
-  );
+  try {
+    const db = getDB();
+    const val = enabled ? 1 : 0;
+    const res = db.runSync('UPDATE user_profile SET biometrics_enabled = ? WHERE id = 1', [val]);
+    if ((res as any)?.changes === 0) {
+      const current = getUserProfile();
+      db.runSync(
+        'INSERT INTO user_profile (id, name, email, biometrics_enabled, accent_color, currency, hide_balance_default) VALUES (1, ?, ?, ?, ?, ?, ?)', 
+        [current?.name || 'John Doe', current?.email || 'john.doe@example.com', val, current?.accent_color || 'emerald', current?.currency || 'PHP', current?.hide_balance_default ?? 0]
+      );
+    }
+  } catch (err) {
+    console.error('Error updating biometrics in DB:', err);
+  }
 };
 
 export const getAccentColorFromDB = (): string => {

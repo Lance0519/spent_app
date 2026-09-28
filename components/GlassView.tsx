@@ -57,12 +57,12 @@ export const GlassView: React.FC<GlassViewProps> = ({
     levelKey === 'background' ? 25 : levelKey === 'control' ? 70 : 40
   );
 
-  // Specular 1px border stroke color
+  // Specular 1px border stroke color (subtle dark stroke in light mode to clearly define edges)
   const defaultBorderColor = isAccent
     ? `${accentColor}40`
     : isDarkMode
     ? (levelKey === 'control' ? 'rgba(255, 255, 255, 0.22)' : 'rgba(255, 255, 255, 0.14)')
-    : (levelKey === 'control' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(255, 255, 255, 0.65)');
+    : (levelKey === 'control' ? 'rgba(15, 23, 42, 0.14)' : 'rgba(15, 23, 42, 0.09)');
 
   // Frosted acrylic tint colors per hierarchy level & theme mode
   const gradientColors = isAccent
@@ -74,10 +74,10 @@ export const GlassView: React.FC<GlassViewProps> = ({
         ? (['rgba(36, 32, 48, 0.82)', 'rgba(24, 21, 33, 0.75)'] as const)
         : (['rgba(28, 25, 38, 0.62)', 'rgba(18, 16, 26, 0.52)'] as const))
     : (levelKey === 'background'
-        ? (['rgba(255, 255, 255, 0.70)', 'rgba(248, 250, 252, 0.50)'] as const)
+        ? (['rgba(255, 255, 255, 0.88)', 'rgba(241, 245, 249, 0.78)'] as const)
         : levelKey === 'control'
-        ? (['rgba(255, 255, 255, 0.94)', 'rgba(248, 250, 252, 0.88)'] as const)
-        : (['rgba(255, 255, 255, 0.86)', 'rgba(248, 250, 252, 0.72)'] as const));
+        ? (['rgba(255, 255, 255, 0.98)', 'rgba(241, 245, 249, 0.94)'] as const)
+        : (['rgba(255, 255, 255, 0.94)', 'rgba(248, 250, 252, 0.88)'] as const));
 
   // Top specular shimmer light bounce gradient
   const specularColors = isDarkMode

@@ -557,17 +557,19 @@ export default function AccountScreen() {
           <GlassView 
             level="control"
             borderRadius={20}
-            style={tw`w-full bg-slate-950/40`}
+            style={tw`w-full`}
             contentStyle={tw`p-4 flex-row items-center justify-between`}
           >
             <View>
               <View style={tw`flex-row items-center mb-0.5`}>
-                <Text style={tw`text-xs font-bold text-slate-300 uppercase tracking-wider mr-1.5`}>Total Net Worth</Text>
+                <Text style={[tw`text-xs font-bold uppercase tracking-wider mr-1.5`, { color: isDark ? '#CBD5E1' : '#475569' }]}>Total Net Worth</Text>
                 <TouchableOpacity onPress={() => setShowNetWorth(!showNetWorth)}>
-                  {showNetWorth ? <Eye size={14} color="#cbd5e1" /> : <EyeOff size={14} color="#cbd5e1" />}
+                  {showNetWorth 
+                    ? <Eye size={14} color={isDark ? "#cbd5e1" : "#475569"} /> 
+                    : <EyeOff size={14} color={isDark ? "#cbd5e1" : "#475569"} />}
                 </TouchableOpacity>
               </View>
-              <Text style={tw`text-2xl font-black text-white tracking-tight`}>
+              <Text style={[tw`text-2xl font-black tracking-tight`, { color: isDark ? '#FFFFFF' : '#1E293B' }]}>
                 {showNetWorth 
                   ? formatCurrency(totalNetWorth) 
                   : `${currencySymbol}** ***.**`}
@@ -578,13 +580,13 @@ export default function AccountScreen() {
               {/* Currency Pill */}
               <TouchableOpacity 
                 onPress={() => setActiveModal('currency')}
-                style={tw`bg-white/20 px-3 py-1 rounded-full border border-white/40`}
+                style={isDark ? tw`bg-white/20 px-3 py-1 rounded-full border border-white/40` : tw`bg-slate-200/90 px-3 py-1 rounded-full border border-slate-300`}
               >
-                <Text style={tw`text-xs font-bold text-white uppercase`}>{currency}</Text>
+                <Text style={[tw`text-xs font-extrabold uppercase`, { color: isDark ? '#FFFFFF' : '#1E293B' }]}>{currency}</Text>
               </TouchableOpacity>
 
               {/* Accent Palette Indicator */}
-              <View style={[tw`w-6 h-6 rounded-full border border-white/60`, { backgroundColor: accentColor }]} />
+              <View style={[tw`w-6 h-6 rounded-full border`, isDark ? tw`border-white/60` : tw`border-slate-400`, { backgroundColor: accentColor }]} />
             </View>
           </GlassView>
         </LinearGradient>

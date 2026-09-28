@@ -152,12 +152,12 @@ export default function Dashboard() {
             <GlassView 
               level="control" 
               borderRadius={18} 
-              borderColor="rgba(52, 211, 153, 0.45)"
-              style={tw`flex-1 bg-emerald-950/40`}
+              borderColor={isDark ? "rgba(52, 211, 153, 0.45)" : "rgba(16, 185, 129, 0.35)"}
+              style={tw`flex-1`}
               contentStyle={tw`px-4 py-3`}
             >
-              <Text style={tw`text-emerald-300 text-xs font-extrabold tracking-wide`}>This Month Income</Text>
-              <Text style={tw`text-white font-black text-base mt-0.5`}>
+              <Text style={[tw`text-xs font-extrabold tracking-wide`, { color: isDark ? '#34D399' : '#047857' }]}>This Month Income</Text>
+              <Text style={[tw`font-black text-base mt-0.5`, { color: isDark ? '#FFFFFF' : '#1E293B' }]}>
                 {showBalance ? formatCurrency(totalMonthlyIncome) : '••••••'}
               </Text>
             </GlassView>
@@ -165,12 +165,12 @@ export default function Dashboard() {
             <GlassView 
               level="control" 
               borderRadius={18} 
-              borderColor="rgba(251, 113, 133, 0.45)"
-              style={tw`flex-1 bg-rose-950/40`}
+              borderColor={isDark ? "rgba(251, 113, 133, 0.45)" : "rgba(244, 63, 94, 0.35)"}
+              style={tw`flex-1`}
               contentStyle={tw`px-4 py-3`}
             >
-              <Text style={tw`text-rose-300 text-xs font-extrabold tracking-wide`}>This Month Expenses</Text>
-              <Text style={tw`text-white font-black text-base mt-0.5`}>
+              <Text style={[tw`text-xs font-extrabold tracking-wide`, { color: isDark ? '#FB7185' : '#BE123C' }]}>This Month Expenses</Text>
+              <Text style={[tw`font-black text-base mt-0.5`, { color: isDark ? '#FFFFFF' : '#1E293B' }]}>
                 {showBalance ? formatCurrency(totalMonthlyExpenses) : '••••••'}
               </Text>
             </GlassView>
@@ -181,10 +181,10 @@ export default function Dashboard() {
       {/* Quick Actions Row with Frosted Glass Controls */}
       <View style={tw`flex-row justify-between px-8 py-5`}>
         {[
-          { icon: Target, label: 'Budget', color: '#8b5cf6', action: () => router.push('/budgets') },
-          { icon: PieChart, label: 'Analytics', color: '#10b981', action: () => router.push('/analytics') },
-          { icon: List, label: 'Reminders', color: '#f59e0b', action: () => router.push('/reminders') },
-          { icon: Download, label: 'Export', color: '#06b6d4', action: handleExportData },
+          { icon: Target, label: 'Budget', color: '#7C3AED', action: () => router.push('/budgets') },
+          { icon: PieChart, label: 'Analytics', color: '#059669', action: () => router.push('/analytics') },
+          { icon: List, label: 'Reminders', color: '#D97706', action: () => router.push('/reminders') },
+          { icon: Download, label: 'Export', color: '#2563EB', action: handleExportData },
         ].map((item, i) => (
           <TouchableOpacity 
             key={i} 
@@ -200,7 +200,7 @@ export default function Dashboard() {
             >
               <item.icon size={22} color={item.color} />
             </GlassView>
-            <Text style={[tw`text-xs font-bold`, { color: textPrimary }]}>{item.label}</Text>
+            <Text style={tw`text-xs font-extrabold text-slate-800 dark:text-slate-200`}>{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

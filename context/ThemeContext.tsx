@@ -163,10 +163,10 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return `${sign}${currencySymbol}${absFormatted}`;
   };
 
-  // Semantic dynamic text tokens based on current mode (isDark)
-  const textPrimary = isDark ? '#FFFFFF' : '#18181B';
-  const textSecondary = isDark ? '#A1A1AA' : '#71717A';
-  const textMuted = isDark ? '#71717A' : '#A1A1AA';
+  // Semantic dynamic text tokens based on current mode (isDark) - High contrast dark charcoal for Light Mode (#1E293B, #334155, #475569)
+  const textPrimary = isDark ? '#FFFFFF' : '#1E293B';
+  const textSecondary = isDark ? '#A1A1AA' : '#334155';
+  const textMuted = isDark ? '#71717A' : '#475569';
   const textOnAccent = getContrastTextColor(accentColor);
 
   const glassBg = isDark ? 'rgba(35, 32, 42, 0.72)' : 'rgba(255, 255, 255, 0.75)';

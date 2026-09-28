@@ -26,7 +26,7 @@ export const AmbientBackground: React.FC<AmbientBackgroundProps> = ({
   const orb2Opacity = (isDark ? 0.24 : 0.12) * mult;
   const orb3Opacity = (isDark ? 0.20 : 0.10) * mult;
 
-  const baseBg = isDark ? '#0F0D15' : '#F8FAFC';
+  const baseBg = isDark ? '#0F0D15' : '#F1F5F9';
 
   return (
     <View style={[styles.container, { backgroundColor: baseBg }, style]}>

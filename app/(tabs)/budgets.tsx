@@ -287,7 +287,7 @@ export default function BudgetsScreen() {
                 const remaining = budget.amount - spent;
                 
                 return (
-                  <GlassView key={budget.id} intensity={35} borderRadius={26} style={tw`mb-4`} contentStyle={tw`p-5`}>
+                  <GlassView key={budget.id} level="container" borderRadius={24} style={tw`mb-4`} contentStyle={tw`p-5`}>
                     <View style={tw`flex-row justify-between items-center mb-3`}>
                       <View style={tw`flex-row items-center flex-1 mr-2`}>
                         <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`, { backgroundColor: catObj ? `${catObj.color}20` : 'rgba(255,255,255,0.1)' }]}>
