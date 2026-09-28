@@ -113,36 +113,44 @@ export const GlassView: React.FC<GlassViewProps> = ({
 
   const innerContent = (
     <>
-      {/* Native Hardware Blur Layer - pointerEvents="none" MUST be set for Android click pass-through! */}
-      <BlurView
-        intensity={resolvedIntensity}
-        tint={isDarkMode ? 'dark' : 'light'}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
+      {/* Native Decorative & Shimmer Layer - strictly wrapped in View with pointerEvents="none" so Android touch events are never swallowed */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        {Platform.OS !== 'android' ? (
+          <BlurView
+            intensity={resolvedIntensity}
+            tint={isDarkMode ? 'dark' : 'light'}
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
 
-      {/* Frosted Acrylic Tint Overlay - pointerEvents="none" */}
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-
-      {/* Top Specular Shimmer Light Bounce - pointerEvents="none" */}
-      {specular && (
+        {/* Frosted Acrylic Tint Overlay */}
         <LinearGradient
-          colors={specularColors}
+          colors={gradientColors}
           start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 0.35 }}
+          end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
-          pointerEvents="none"
         />
-      )}
+
+        {/* Top Specular Shimmer Light Bounce */}
+        {specular && (
+          <LinearGradient
+            colors={specularColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 0.35 }}
+            style={StyleSheet.absoluteFill}
+          />
+        )}
+      </View>
 
       {/* Actual Component Children Content */}
-      <View style={[styles.content, contentStyle]} pointerEvents={pointerEvents}>
+      <View 
+        style={[
+          styles.content, 
+          style && (style as any).flex ? { flex: (style as any).flex } : null,
+          contentStyle
+        ]} 
+        pointerEvents={pointerEvents}
+      >
         {children}
       </View>
     </>
@@ -170,6 +178,6 @@ export const GlassView: React.FC<GlassViewProps> = ({
 const styles = StyleSheet.create({
   content: {
     position: 'relative',
-    zIndex: 1,
+    zIndex: 10,
   },
 });

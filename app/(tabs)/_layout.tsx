@@ -24,13 +24,14 @@ export default function TabLayout() {
   const tabHeight = 64;
 
   const renderTabBarBackground = () => (
-    <View style={[StyleSheet.absoluteFill, { borderRadius: 28, overflow: 'hidden' }]}>
-      <BlurView
-        intensity={85}
-        tint={isDark ? 'dark' : 'light'}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
+    <View style={[StyleSheet.absoluteFill, { borderRadius: 28, overflow: 'hidden' }]} pointerEvents="none">
+      {Platform.OS !== 'android' ? (
+        <BlurView
+          intensity={85}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
       <LinearGradient
         colors={
           isDark
@@ -40,7 +41,6 @@ export default function TabLayout() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
-        pointerEvents="none"
       />
       <LinearGradient
         colors={
@@ -51,7 +51,6 @@ export default function TabLayout() {
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 0.40 }}
         style={StyleSheet.absoluteFill}
-        pointerEvents="none"
       />
     </View>
   );

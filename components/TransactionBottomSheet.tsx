@@ -487,9 +487,7 @@ export const TransactionBottomSheet = forwardRef<TransactionBottomSheetRef, Prop
         index={-1}
         snapPoints={snapPoints}
         enablePanDownToClose
-        activeOffsetX={[-999, 999]}
-        activeOffsetY={[-5, 5]}
-        backdropComponent={props => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} />}
+        backdropComponent={props => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} pressBehavior="close" />}
         backgroundStyle={{ backgroundColor: isDark ? '#141218' : '#FEF7FF', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}
         handleIndicatorStyle={{ backgroundColor: isDark ? '#334155' : '#cbd5e1' }}
       >
