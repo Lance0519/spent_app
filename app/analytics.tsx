@@ -21,8 +21,6 @@ import { getDB, getCategories, Category, getUserProfile } from '../db/database';
 import { PieChart, BarChart } from 'react-native-gifted-charts';
 import { useTheme } from '../context/ThemeContext';
 import { IconMap } from '../utils/Icons';
-import { AmbientBackground } from '../components/AmbientBackground';
-import { GlassView } from '../components/GlassView';
 
 type Transaction = {
   id: number;
@@ -229,109 +227,108 @@ export default function AnalyticsScreen() {
   }, [currentMonthTransactions]);
 
   return (
-    <AmbientBackground style={tw`flex-1 relative`}>
-      <SafeAreaView style={tw`flex-1`}>
+    <SafeAreaView style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218]`}>
+      
+      {/* Header */}
+      <View style={tw`flex-row items-center justify-between px-6 py-4 bg-[#FEF7FF] dark:bg-[#141218] border-b border-slate-100 dark:border-slate-800`}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={tw`w-10 h-10 bg-[#F3EDF7] dark:bg-[#211F26] rounded-full items-center justify-center`}
+        >
+          <ArrowLeft color={textSecondary} size={20} />
+        </TouchableOpacity>
+        <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>Visual Analytics</Text>
+        <View style={tw`w-10 h-10`} />
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1 px-5 pt-4`} contentContainerStyle={tw`pb-12`}>
         
-        {/* Header */}
-        <View style={tw`flex-row items-center justify-between px-6 py-4 border-b border-white/20 dark:border-white/5`}>
+        {/* Month Selector Bar */}
+        <View style={tw`flex-row items-center justify-between bg-[#F4EFF4] dark:bg-[#49454F] p-2 rounded-2xl mb-5 border border-slate-100 dark:border-slate-800`}>
           <TouchableOpacity 
-            onPress={() => router.back()} 
-            style={tw`w-10 h-10 bg-white/50 dark:bg-white/10 rounded-full items-center justify-center border border-white/40 dark:border-white/10`}
+            onPress={handlePrevMonth}
+            style={tw`w-10 h-10 bg-[#F3EDF7] dark:bg-[#211F26] rounded-xl items-center justify-center`}
           >
-            <ArrowLeft color={textSecondary} size={20} />
+            <ChevronLeft size={20} color={textSecondary} />
           </TouchableOpacity>
-          <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>Visual Analytics</Text>
-          <View style={tw`w-10 h-10`} />
-        </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} style={tw`flex-1 px-5 pt-4`} contentContainerStyle={tw`pb-12`}>
-          
-          {/* Month Selector Bar */}
-          <GlassView level="control" borderRadius={20} style={tw`mb-5`} contentStyle={tw`flex-row items-center justify-between p-2`}>
-            <TouchableOpacity 
-              onPress={handlePrevMonth}
-              style={tw`w-10 h-10 bg-white/40 dark:bg-white/10 rounded-xl items-center justify-center border border-white/40 dark:border-white/5`}
-            >
-              <ChevronLeft size={20} color={textPrimary} />
-            </TouchableOpacity>
-
-            <View style={tw`flex-row items-center`}>
-              <Calendar size={16} color={accentColor} style={tw`mr-2`} />
-              <Text style={[tw`text-base font-black tracking-tight`, { color: textPrimary }]}>
-                {formattedMonth}
-              </Text>
-            </View>
-
-            <TouchableOpacity 
-              onPress={handleNextMonth}
-              style={tw`w-10 h-10 bg-white/40 dark:bg-white/10 rounded-xl items-center justify-center border border-white/40 dark:border-white/5`}
-            >
-              <ChevronRight size={20} color={textPrimary} />
-            </TouchableOpacity>
-          </GlassView>
-
-          {/* Top 3 Summary Cards */}
-          <View style={tw`flex-row gap-2 mb-5`}>
-            
-            {/* Income Card */}
-            <GlassView level="container" borderRadius={20} style={tw`flex-1`} contentStyle={tw`p-3`}>
-              <View style={tw`w-7 h-7 rounded-full bg-emerald-500/15 items-center justify-center mb-1.5 border border-emerald-500/20`}>
-                <TrendingUp size={15} color="#10b981" />
-              </View>
-              <Text style={tw`text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300`}>Income</Text>
-              <Text 
-                style={tw`text-base font-black text-emerald-700 dark:text-emerald-400 mt-0.5`} 
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {currencySymbol}{summaryTotals.income.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </Text>
-            </GlassView>
-
-            {/* Expenses Card */}
-            <GlassView level="container" borderRadius={20} style={tw`flex-1`} contentStyle={tw`p-3`}>
-              <View style={tw`w-7 h-7 rounded-full bg-rose-500/15 items-center justify-center mb-1.5 border border-rose-500/20`}>
-                <TrendingDown size={15} color="#f43f5e" />
-              </View>
-              <Text style={tw`text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300`}>Expenses</Text>
-              <Text 
-                style={tw`text-base font-black text-rose-700 dark:text-rose-400 mt-0.5`} 
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {currencySymbol}{summaryTotals.expense.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </Text>
-            </GlassView>
-
-            {/* Net Savings Card */}
-            <GlassView 
-              level="container" 
-              borderRadius={20} 
-              style={[tw`flex-1`, summaryTotals.netSavings < 0 && tw`bg-rose-500/10 border-rose-500/30`]} 
-              contentStyle={tw`p-3`}
-            >
-              <View style={tw`w-7 h-7 rounded-full bg-blue-500/15 items-center justify-center mb-1.5 border border-blue-500/20`}>
-                <Scale size={15} color={accentColor} />
-              </View>
-              <Text style={tw`text-[10px] font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300`}>Net Savings</Text>
-              <Text 
-                style={[
-                  tw`text-base font-black mt-0.5`,
-                  summaryTotals.netSavings >= 0 ? { color: textPrimary } : tw`text-rose-700 dark:text-rose-400`
-                ]} 
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {summaryTotals.netSavings < 0 ? '-' : ''}{currencySymbol}{Math.abs(summaryTotals.netSavings).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-              </Text>
-            </GlassView>
+          <View style={tw`flex-row items-center`}>
+            <Calendar size={16} color={accentColor} style={tw`mr-2`} />
+            <Text style={[tw`text-base font-black tracking-tight`, { color: textPrimary }]}>
+              {formattedMonth}
+            </Text>
           </View>
 
+          <TouchableOpacity 
+            onPress={handleNextMonth}
+            style={tw`w-10 h-10 bg-[#F3EDF7] dark:bg-[#211F26] rounded-xl items-center justify-center`}
+          >
+            <ChevronRight size={20} color={textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Top 3 Summary Cards */}
+        <View style={tw`flex-row gap-2 mb-5`}>
+          
+          {/* Income Card */}
+          <View style={tw`flex-1 bg-[#F4EFF4] dark:bg-[#49454F] p-3 rounded-2xl border border-slate-100 dark:border-slate-800`}>
+            <View style={tw`w-7 h-7 rounded-full bg-emerald-50 dark:bg-emerald-500/10 items-center justify-center mb-1.5`}>
+              <TrendingUp size={15} color="#10b981" />
+            </View>
+            <Text style={[tw`text-[10px] font-bold uppercase tracking-wider`, { color: textMuted }]}>Income</Text>
+            <Text 
+              style={tw`text-base font-black text-emerald-600 dark:text-emerald-400 mt-0.5`} 
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {currencySymbol}{summaryTotals.income.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </Text>
+          </View>
+
+          {/* Expenses Card */}
+          <View style={tw`flex-1 bg-[#F4EFF4] dark:bg-[#49454F] p-3 rounded-2xl border border-slate-100 dark:border-slate-800`}>
+            <View style={tw`w-7 h-7 rounded-full bg-rose-50 dark:bg-rose-500/10 items-center justify-center mb-1.5`}>
+              <TrendingDown size={15} color="#f43f5e" />
+            </View>
+            <Text style={[tw`text-[10px] font-bold uppercase tracking-wider`, { color: textMuted }]}>Expenses</Text>
+            <Text 
+              style={tw`text-base font-black text-rose-600 dark:text-rose-400 mt-0.5`} 
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {currencySymbol}{summaryTotals.expense.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </Text>
+          </View>
+
+          {/* Net Savings Card */}
+          <View style={[
+            tw`flex-1 p-3 rounded-2xl border`,
+            summaryTotals.netSavings >= 0 
+              ? tw`bg-[#F4EFF4] dark:bg-[#49454F] border-slate-100 dark:border-slate-800`
+              : tw`bg-rose-50/50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20`
+          ]}>
+            <View style={tw`w-7 h-7 rounded-full bg-blue-50 dark:bg-blue-500/10 items-center justify-center mb-1.5`}>
+              <Scale size={15} color={accentColor} />
+            </View>
+            <Text style={[tw`text-[10px] font-bold uppercase tracking-wider`, { color: textMuted }]}>Net Savings</Text>
+            <Text 
+              style={[
+                tw`text-base font-black mt-0.5`,
+                summaryTotals.netSavings >= 0 ? { color: textPrimary } : tw`text-rose-600 dark:text-rose-400`
+              ]} 
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {summaryTotals.netSavings < 0 ? '-' : ''}{currencySymbol}{Math.abs(summaryTotals.netSavings).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+            </Text>
+          </View>
+        </View>
+
         {/* SECTION 1: Category Expense Breakdown (Donut Chart & Legend) */}
-        <GlassView level="container" borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-5`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-3xl p-5 mb-6 border border-slate-100 dark:border-slate-800`}>
           <View style={tw`flex-row items-center justify-between mb-4`}>
             <View style={tw`flex-row items-center flex-1 mr-2`}>
-              <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-2.5 border border-white/20 dark:border-white/5`, { backgroundColor: `${accentColor}20` }]}>
+              <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-2.5`, { backgroundColor: `${accentColor}15` }]}>
                 <PieIcon size={16} color={accentColor} />
               </View>
               <Text style={[tw`text-base font-black`, { color: textPrimary }]} numberOfLines={1}>Expense Breakdown</Text>
@@ -354,7 +351,7 @@ export default function AnalyticsScreen() {
                   showText
                   radius={110}
                   innerRadius={70}
-                  innerCircleColor={isDark ? '#1C1A24' : '#F6F1F8'}
+                  innerCircleColor={isDark ? '#49454F' : '#F4EFF4'}
                   centerLabelComponent={() => (
                     <View style={tw`items-center justify-center`}>
                       <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>
@@ -369,13 +366,13 @@ export default function AnalyticsScreen() {
               </View>
 
               {/* Category Legend List */}
-              <View style={tw`mt-4 pt-3 border-t border-white/20 dark:border-white/5`}>
+              <View style={tw`mt-4 pt-3 border-t border-slate-200 dark:border-slate-700/60`}>
                 {expenseBreakdown.list.map((item, idx) => {
                   const IconComponent = IconMap[item.icon] || Tag;
                   return (
-                    <View key={item.category} style={tw`flex-row items-center justify-between py-2.5 ${idx !== expenseBreakdown.list.length - 1 ? 'border-b border-white/10 dark:border-white/5' : ''}`}>
+                    <View key={item.category} style={tw`flex-row items-center justify-between py-2.5 ${idx !== expenseBreakdown.list.length - 1 ? 'border-b border-slate-200/60 dark:border-slate-700/40' : ''}`}>
                       <View style={tw`flex-row items-center flex-1 mr-2`}>
-                        <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`, { backgroundColor: `${item.color}20` }]}>
+                        <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-3`, { backgroundColor: `${item.color}20` }]}>
                           <IconComponent size={15} color={item.color} />
                         </View>
                         <View style={tw`flex-1`}>
@@ -392,14 +389,14 @@ export default function AnalyticsScreen() {
               </View>
             </View>
           )}
-        </GlassView>
+        </View>
 
         {/* SECTION 2: 6-Month Income vs. Expense (Bar Chart) */}
-        <GlassView level="container" borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-4`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-3xl p-4 mb-6 border border-slate-100 dark:border-slate-800`}>
           {/* Card Header: Title & Subtitle stacked cleanly */}
           <View style={tw`mb-2`}>
             <View style={tw`flex-row items-center`}>
-              <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-2.5 border border-white/20 dark:border-white/5`, { backgroundColor: `${accentColor}20` }]}>
+              <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-2.5`, { backgroundColor: `${accentColor}15` }]}>
                 <BarChart3 size={16} color={accentColor} />
               </View>
               <Text style={[tw`text-base font-black`, { color: textPrimary }]}>6-Month Cash Flow</Text>
@@ -447,13 +444,13 @@ export default function AnalyticsScreen() {
               isAnimated
             />
           </View>
-        </GlassView>
+        </View>
 
         {/* SECTION 3: Top 3 Biggest Spends */}
-        <GlassView level="container" borderRadius={24} style={tw`mb-6`} contentStyle={tw`p-4`}>
+        <View style={tw`bg-[#F4EFF4] dark:bg-[#49454F] rounded-3xl p-4 border border-slate-100 dark:border-slate-800`}>
           <View style={tw`flex-row items-center justify-between mb-4`}>
             <View style={tw`flex-row items-center flex-1 mr-2`}>
-              <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-2.5 border border-white/20 dark:border-white/5`, { backgroundColor: `${accentColor}20` }]}>
+              <View style={[tw`w-8 h-8 rounded-full items-center justify-center mr-2.5`, { backgroundColor: `${accentColor}15` }]}>
                 <Sparkles size={16} color={accentColor} />
               </View>
               <Text style={[tw`text-base font-black`, { color: textPrimary }]} numberOfLines={1}>Top Spends This Month</Text>
@@ -472,7 +469,7 @@ export default function AnalyticsScreen() {
               return (
                 <View 
                   key={tx.id} 
-                  style={tw`flex-row items-center justify-between p-3 bg-white/40 dark:bg-white/5 rounded-2xl mb-2.5 border border-white/30 dark:border-white/5`}
+                  style={tw`flex-row items-center justify-between p-3 bg-[#F3EDF7] dark:bg-[#211F26] rounded-2xl mb-2.5 border border-slate-100 dark:border-slate-800`}
                 >
                   <View style={tw`flex-row items-center flex-1 mr-2`}>
                     {/* Rank Pill */}
@@ -481,7 +478,7 @@ export default function AnalyticsScreen() {
                     </View>
 
                     {/* Category Icon */}
-                    <View style={[tw`w-9 h-9 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`, { backgroundColor: `${catColor}20` }]}>
+                    <View style={[tw`w-9 h-9 rounded-full items-center justify-center mr-3`, { backgroundColor: `${catColor}20` }]}>
                       <IconComponent size={16} color={catColor} />
                     </View>
 
@@ -498,10 +495,9 @@ export default function AnalyticsScreen() {
               );
             })
           )}
-        </GlassView>
+        </View>
 
       </ScrollView>
     </SafeAreaView>
-  </AmbientBackground>
   );
 }

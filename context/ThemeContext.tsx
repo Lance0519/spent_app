@@ -63,13 +63,7 @@ export interface ThemeTextTokens {
   textOnAccent: string;
 }
 
-export interface ThemeGlassTokens {
-  glassBg: string;
-  glassBorder: string;
-  glassSurface: string;
-}
-
-interface ThemeContextType extends ThemeTextTokens, ThemeGlassTokens {
+interface ThemeContextType extends ThemeTextTokens {
   accentKey: AccentPaletteKey;
   accentColor: string;
   palette: PaletteConfig;
@@ -92,9 +86,6 @@ const ThemeContext = createContext<ThemeContextType>({
   textSecondary: '#71717A',
   textMuted: '#A1A1AA',
   textOnAccent: '#FFFFFF',
-  glassBg: 'rgba(255, 255, 255, 0.75)',
-  glassBorder: 'rgba(255, 255, 255, 0.65)',
-  glassSurface: 'rgba(244, 239, 248, 0.65)',
   currency: 'PHP',
   currencySymbol: '₱',
   formatCurrency: (val: number) => `₱${val.toFixed(2)}`,
@@ -163,15 +154,11 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return `${sign}${currencySymbol}${absFormatted}`;
   };
 
-  // Semantic dynamic text tokens based on current mode (isDark) - High contrast dark charcoal for Light Mode (#1E293B, #334155, #475569)
-  const textPrimary = isDark ? '#FFFFFF' : '#1E293B';
-  const textSecondary = isDark ? '#A1A1AA' : '#334155';
-  const textMuted = isDark ? '#71717A' : '#475569';
+  // Semantic dynamic text tokens based on current mode (isDark)
+  const textPrimary = isDark ? '#FFFFFF' : '#18181B';
+  const textSecondary = isDark ? '#A1A1AA' : '#71717A';
+  const textMuted = isDark ? '#71717A' : '#A1A1AA';
   const textOnAccent = getContrastTextColor(accentColor);
-
-  const glassBg = isDark ? 'rgba(35, 32, 42, 0.72)' : 'rgba(255, 255, 255, 0.75)';
-  const glassBorder = isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.65)';
-  const glassSurface = isDark ? 'rgba(45, 41, 54, 0.55)' : 'rgba(244, 239, 248, 0.65)';
 
   return (
     <ThemeContext.Provider value={{ 
@@ -187,9 +174,6 @@ export const CustomThemeProvider: React.FC<{ children: React.ReactNode }> = ({ c
       textSecondary,
       textMuted,
       textOnAccent,
-      glassBg,
-      glassBorder,
-      glassSurface,
       setAccentColor, 
       toggleDarkMode,
       setColorScheme

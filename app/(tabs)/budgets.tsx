@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView as RNScrollView, TextInput, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView as RNScrollView, TextInput, Alert, Modal } from 'react-native';
 import { ScrollView as GestureScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -8,11 +8,10 @@ import {
   Target, Trophy, Plus, Tag, Edit2, Trash2, Check, AlertCircle, 
   Wallet, Landmark, Smartphone, CreditCard, X 
 } from 'lucide-react-native';
+import BottomSheet, { BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { FinanceService, Category, Budget, Goal, Account } from '../../services/FinanceService';
 import { IconMap } from '../../utils/Icons';
 import { useTheme } from '../../context/ThemeContext';
-import { AmbientBackground } from '../../components/AmbientBackground';
-import { GlassView } from '../../components/GlassView';
 
 export default function BudgetsScreen() {
   const router = useRouter();
@@ -28,9 +27,9 @@ export default function BudgetsScreen() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [spentTotals, setSpentTotals] = useState<Record<string, number>>({});
   
-  // Modal Visibility State
-  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
-  const [goalModalVisible, setGoalModalVisible] = useState(false);
+  // Bottom Sheet Refs
+  const budgetSheetRef = useRef<BottomSheet>(null);
+  const goalSheetRef = useRef<BottomSheet>(null);
   
   // Budget Form State
   const [editingBudgetId, setEditingBudgetId] = useState<number | null>(null);
@@ -87,14 +86,14 @@ export default function BudgetsScreen() {
     const firstCat = categories.length > 0 ? categories[0].name : '';
     setBudgetCat(firstCat);
     setBudgetAmount('');
-    setBudgetModalVisible(true);
+    budgetSheetRef.current?.expand();
   };
 
   const openEditBudget = (budget: Budget) => {
     setEditingBudgetId(budget.id);
     setBudgetCat(budget.category);
     setBudgetAmount(budget.amount.toString());
-    setBudgetModalVisible(true);
+    budgetSheetRef.current?.expand();
   };
 
   const handleSaveBudget = () => {
@@ -108,7 +107,7 @@ export default function BudgetsScreen() {
       FinanceService.saveBudget(budgetCat, num, 'monthly');
     }
     fetchData();
-    setBudgetModalVisible(false);
+    budgetSheetRef.current?.close();
     setEditingBudgetId(null);
     setBudgetCat('');
     setBudgetAmount('');
@@ -130,7 +129,7 @@ export default function BudgetsScreen() {
             FinanceService.deleteBudget(targetId);
             fetchData();
             if (editingBudgetId) {
-              setBudgetModalVisible(false);
+              budgetSheetRef.current?.close();
               setEditingBudgetId(null);
             }
           } 
@@ -145,7 +144,7 @@ export default function BudgetsScreen() {
     if (isNaN(num) || num <= 0) return Alert.alert('Error', 'Enter a valid target amount');
     FinanceService.addGoal(goalTitle.trim(), num, '#3b82f6', 'wallet');
     fetchData();
-    setGoalModalVisible(false);
+    goalSheetRef.current?.close();
     setGoalTitle('');
     setGoalTarget('');
   };
@@ -203,69 +202,54 @@ export default function BudgetsScreen() {
   };
 
   return (
-    <AmbientBackground style={tw`flex-1 relative`}>
-      <SafeAreaView style={tw`flex-1 relative`} edges={['top']}>
-        {/* Top Header */}
-        <View style={tw`px-6 py-4 border-b border-white/20 dark:border-white/5 flex-row justify-between items-center`}>
-          <Text style={[tw`text-2xl font-black`, { color: textPrimary }]}>Planning</Text>
-          <TouchableOpacity 
-            onPress={() => (activeTab === 'budgets' ? openAddBudget() : setGoalModalVisible(true))} 
-            style={[
-              tw`w-11 h-11 rounded-full items-center justify-center min-h-[48px] min-w-[48px] border`, 
-              { 
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.65)', 
-                borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.70)' 
-              }
-            ]}
-            activeOpacity={0.7}
-          >
-            <Plus color={accentColor} size={24} />
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218]`} edges={['top']}>
+      {/* Top Header */}
+      <View style={tw`px-6 py-4 bg-[#FEF7FF] dark:bg-[#141218] border-b border-slate-100 dark:border-slate-800 flex-row justify-between items-center`}>
+        <Text style={[tw`text-2xl font-black`, { color: textPrimary }]}>Planning</Text>
+        <TouchableOpacity 
+          onPress={() => (activeTab === 'budgets' ? openAddBudget() : goalSheetRef.current?.expand())} 
+          style={[tw`w-11 h-11 rounded-full items-center justify-center min-h-[48px] min-w-[48px]`, { backgroundColor: `${accentColor}15` }]}
+          activeOpacity={0.7}
+        >
+          <Plus color={accentColor} size={24} />
+        </TouchableOpacity>
+      </View>
 
-        {/* Tabs */}
-        <View style={tw`flex-row px-6 py-4 gap-3`}>
-          <TouchableOpacity 
-            onPress={() => setActiveTab('budgets')}
-            style={[
-              tw`flex-1 py-3 rounded-2xl items-center flex-row justify-center border min-h-[48px]`,
-              activeTab === 'budgets' 
-                ? [{ backgroundColor: `${accentColor}20`, borderColor: `${accentColor}50` }] 
-                : {
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.65)',
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.60)'
-                  }
-            ]}
-          >
-            <Target size={18} color={activeTab === 'budgets' ? accentColor : textMuted} style={tw`mr-2`} />
-            <Text style={[tw`font-bold text-sm`, { color: activeTab === 'budgets' ? accentColor : textSecondary }]}>Budgets</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            onPress={() => setActiveTab('goals')}
-            style={[
-              tw`flex-1 py-3 rounded-2xl items-center flex-row justify-center border min-h-[48px]`,
-              activeTab === 'goals' 
-                ? [{ backgroundColor: `${accentColor}20`, borderColor: `${accentColor}50` }] 
-                : {
-                    backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.65)',
-                    borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.60)'
-                  }
-            ]}
-          >
-            <Trophy size={18} color={activeTab === 'goals' ? accentColor : textMuted} style={tw`mr-2`} />
-            <Text style={[tw`font-bold text-sm`, { color: activeTab === 'goals' ? accentColor : textSecondary }]}>Savings Goals</Text>
-          </TouchableOpacity>
-        </View>
+      {/* Tabs */}
+      <View style={tw`flex-row px-6 py-4 gap-3`}>
+        <TouchableOpacity 
+          onPress={() => setActiveTab('budgets')}
+          style={[
+            tw`flex-1 py-3 rounded-2xl items-center flex-row justify-center border-2 min-h-[48px]`,
+            activeTab === 'budgets' 
+              ? [{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}40` }] 
+              : tw`bg-[#F4EFF4] dark:bg-[#211F26] border-slate-100 dark:border-slate-800`
+          ]}
+        >
+          <Target size={18} color={activeTab === 'budgets' ? accentColor : textMuted} style={tw`mr-2`} />
+          <Text style={[tw`font-bold text-sm`, { color: activeTab === 'budgets' ? accentColor : textSecondary }]}>Budgets</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          onPress={() => setActiveTab('goals')}
+          style={[
+            tw`flex-1 py-3 rounded-2xl items-center flex-row justify-center border-2 min-h-[48px]`,
+            activeTab === 'goals' 
+              ? [{ backgroundColor: `${accentColor}15`, borderColor: `${accentColor}40` }] 
+              : tw`bg-[#F4EFF4] dark:bg-[#211F26] border-slate-100 dark:border-slate-800`
+          ]}
+        >
+          <Trophy size={18} color={activeTab === 'goals' ? accentColor : textMuted} style={tw`mr-2`} />
+          <Text style={[tw`font-bold text-sm`, { color: activeTab === 'goals' ? accentColor : textSecondary }]}>Savings Goals</Text>
+        </TouchableOpacity>
+      </View>
 
-      <RNScrollView style={tw`flex-1 px-6`} contentContainerStyle={tw`pb-32`} showsVerticalScrollIndicator={false}>
+      <RNScrollView style={tw`flex-1 px-6`} showsVerticalScrollIndicator={false}>
         {activeTab === 'budgets' && (
-          <View style={tw`pb-8`}>
+          <View style={tw`pb-24`}>
             {budgets.length === 0 ? (
               <View style={tw`items-center justify-center mt-16`}>
-                <View style={tw`w-20 h-20 rounded-full bg-white/20 dark:bg-white/5 items-center justify-center mb-4 border border-white/20 dark:border-white/10`}>
-                  <Target size={36} color={textMuted} />
-                </View>
+                <Target size={60} color={textMuted} style={tw`opacity-30 mb-3`} />
                 <Text style={[tw`text-lg font-bold mb-1`, { color: textMuted }]}>No budgets set</Text>
                 <Text style={[tw`text-xs text-center max-w-xs mb-4`, { color: textSecondary }]}>
                   Keep your expenses on track by establishing monthly spending limits.
@@ -286,10 +270,10 @@ export default function BudgetsScreen() {
                 const remaining = budget.amount - spent;
                 
                 return (
-                  <GlassView key={budget.id} level="container" borderRadius={24} style={tw`mb-4`} contentStyle={tw`p-5`}>
+                  <View key={budget.id} style={tw`bg-[#F4EFF4] dark:bg-[#211F26] p-5 rounded-3xl shadow-sm mb-4 border border-slate-100 dark:border-slate-800`}>
                     <View style={tw`flex-row justify-between items-center mb-3`}>
                       <View style={tw`flex-row items-center flex-1 mr-2`}>
-                        <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`, { backgroundColor: catObj ? `${catObj.color}20` : 'rgba(255,255,255,0.1)' }]}>
+                        <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: catObj ? `${catObj.color}20` : '#f1f5f9' }]}>
                           <IconComp size={18} color={catObj ? catObj.color : '#64748b'} />
                         </View>
                         <View>
@@ -301,16 +285,13 @@ export default function BudgetsScreen() {
                       <View style={tw`flex-row items-center gap-1`}>
                         <TouchableOpacity 
                           onPress={() => openEditBudget(budget)} 
-                          style={[tw`p-2.5 rounded-full min-h-[40px] min-w-[40px] items-center justify-center border`, {
-                            backgroundColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.75)',
-                            borderColor: isDark ? 'rgba(255, 255, 255, 0.10)' : 'rgba(255, 255, 255, 0.60)'
-                          }]}
+                          style={tw`p-2.5 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full min-h-[40px] min-w-[40px] items-center justify-center`}
                         >
                           <Edit2 size={16} color={textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity 
                           onPress={() => handleDeleteBudget(budget.id)} 
-                          style={tw`p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-full min-h-[40px] min-w-[40px] items-center justify-center`}
+                          style={tw`p-2.5 bg-rose-50 dark:bg-rose-500/10 rounded-full min-h-[40px] min-w-[40px] items-center justify-center`}
                         >
                           <Trash2 size={16} color="#f43f5e" />
                         </TouchableOpacity>
@@ -332,7 +313,7 @@ export default function BudgetsScreen() {
                       </View>
                     </View>
                     
-                    <View style={tw`h-3 bg-white/20 dark:bg-white/5 rounded-full overflow-hidden mb-2 border border-white/20 dark:border-white/5`}>
+                    <View style={tw`h-3 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full overflow-hidden mb-2`}>
                       <View 
                         style={[
                           tw`h-full rounded-full`, 
@@ -360,15 +341,13 @@ export default function BudgetsScreen() {
                           </Text>
                         </View>
                       ) : (
-                        <Text style={[tw`text-xs font-semibold`, { color: textMuted }]}>
+                        <Text style={tw`text-xs font-bold text-emerald-600 dark:text-emerald-400`}>
                           {formatCurrency(remaining)} remaining
                         </Text>
                       )}
-                      <Text style={[tw`text-xs font-bold`, { color: textMuted }]}>
-                        {progress.toFixed(0)}%
-                      </Text>
+                      <Text style={[tw`text-xs font-semibold`, { color: textMuted }]}>{progress.toFixed(0)}%</Text>
                     </View>
-                  </GlassView>
+                  </View>
                 );
               })
             )}
@@ -376,17 +355,15 @@ export default function BudgetsScreen() {
         )}
 
         {activeTab === 'goals' && (
-          <View style={tw`pb-8`}>
+          <View style={tw`pb-24`}>
             {goals.length === 0 ? (
               <View style={tw`items-center justify-center mt-16`}>
-                <View style={tw`w-20 h-20 rounded-full bg-white/20 dark:bg-white/5 items-center justify-center mb-4 border border-white/20 dark:border-white/10`}>
-                  <Trophy size={36} color={textMuted} />
-                </View>
+                <Trophy size={60} color={textMuted} style={tw`opacity-30 mb-3`} />
                 <Text style={[tw`text-lg font-bold mb-1`, { color: textMuted }]}>No goals set</Text>
                 <Text style={[tw`text-xs text-center max-w-xs mb-4`, { color: textSecondary }]}>
                   Create target savings for emergencies, gadgets, or travel.
                 </Text>
-                <TouchableOpacity onPress={() => setGoalModalVisible(true)} style={[tw`px-6 py-3.5 rounded-full flex-row items-center shadow-md min-h-[48px]`, { backgroundColor: accentColor }]}>
+                <TouchableOpacity onPress={() => goalSheetRef.current?.expand()} style={[tw`px-6 py-3.5 rounded-full flex-row items-center shadow-md min-h-[48px]`, { backgroundColor: accentColor }]}>
                   <Plus color={textOnAccent} size={18} style={tw`mr-2`} />
                   <Text style={[tw`font-bold text-sm`, { color: textOnAccent }]}>Create Goal</Text>
                 </TouchableOpacity>
@@ -397,16 +374,16 @@ export default function BudgetsScreen() {
                 const remaining = Math.max(goal.target_amount - goal.current_amount, 0);
 
                 return (
-                  <GlassView key={goal.id} intensity={35} borderRadius={26} style={tw`mb-4`} contentStyle={tw`p-5`}>
+                  <View key={goal.id} style={tw`bg-[#F4EFF4] dark:bg-[#211F26] p-5 rounded-3xl shadow-sm mb-4 border border-slate-100 dark:border-slate-800`}>
                     <View style={tw`flex-row justify-between items-center mb-3`}>
                       <Text style={[tw`text-lg font-black`, { color: textPrimary }]}>{goal.title}</Text>
                       <View style={tw`flex-row items-center gap-2`}>
-                        <View style={tw`bg-emerald-500/15 border border-emerald-400/20 px-3 py-1 rounded-full`}>
+                        <View style={tw`bg-emerald-100 dark:bg-emerald-500/15 px-3 py-1 rounded-full`}>
                           <Text style={tw`text-xs font-bold text-emerald-600 dark:text-emerald-400`}>{progress.toFixed(0)}%</Text>
                         </View>
                         <TouchableOpacity 
                           onPress={() => handleDeleteGoal(goal.id)} 
-                          style={tw`p-2 bg-rose-500/10 border border-rose-500/20 rounded-full min-h-[36px] min-w-[36px] items-center justify-center`}
+                          style={tw`p-2 bg-rose-50 dark:bg-rose-500/10 rounded-full min-h-[36px] min-w-[36px] items-center justify-center`}
                         >
                           <Trash2 size={16} color="#f43f5e" />
                         </TouchableOpacity>
@@ -418,12 +395,12 @@ export default function BudgetsScreen() {
                       <Text style={[tw`text-sm font-bold mb-1`, { color: textSecondary }]}>/ {formatCurrency(goal.target_amount)}</Text>
                     </View>
 
-                    <View style={tw`h-3 bg-white/20 dark:bg-white/5 rounded-full overflow-hidden mb-3 border border-white/20 dark:border-white/5`}>
+                    <View style={tw`h-3 bg-[#F3EDF7] dark:bg-[#2B2930] rounded-full overflow-hidden mb-3`}>
                       <View style={[tw`h-full rounded-full bg-emerald-500`, { width: `${progress}%` }]} />
                     </View>
 
                     {/* Deposit / Contribution Action Area */}
-                    <View style={tw`flex-row items-center justify-between pt-3 border-t border-white/20 dark:border-white/5`}>
+                    <View style={tw`flex-row items-center justify-between pt-3 border-t border-slate-200/60 dark:border-slate-800/80`}>
                       <Text style={[tw`text-xs font-semibold`, { color: textMuted }]}>
                         {remaining > 0 ? `${formatCurrency(remaining)} remaining` : 'Goal completed! 🎉'}
                       </Text>
@@ -436,7 +413,7 @@ export default function BudgetsScreen() {
                         <Text style={[tw`font-bold text-xs`, { color: textOnAccent }]}>Deposit Funds</Text>
                       </TouchableOpacity>
                     </View>
-                  </GlassView>
+                  </View>
                 );
               })
             )}
@@ -444,131 +421,122 @@ export default function BudgetsScreen() {
         )}
       </RNScrollView>
 
-      {/* Budget Modal */}
-      <Modal visible={budgetModalVisible} transparent animationType="fade">
-        <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
-          <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
-            <View style={tw`flex-row justify-between items-center mb-4`}>
-              <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>
-                {editingBudgetId ? 'Edit Category Budget' : 'Set Category Budget'}
-              </Text>
-              <TouchableOpacity onPress={() => setBudgetModalVisible(false)} style={tw`p-1 min-h-[32px] justify-center`}>
-                <X size={20} color={textSecondary} />
-              </TouchableOpacity>
-            </View>
-            
-            <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Category</Text>
-            <GestureScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} style={tw`mb-4 max-h-12`} contentContainerStyle={tw`flex-row gap-2 pr-6`}>
-              {categories.map(cat => {
-                const isSelected = budgetCat === cat.name;
-                return (
-                  <TouchableOpacity 
-                    key={cat.id} 
-                    onPress={() => setBudgetCat(cat.name)} 
-                    style={[
-                      tw`flex-row items-center border px-4 py-2 rounded-full h-10 min-h-[40px]`, 
-                      isSelected 
-                        ? { backgroundColor: cat.color, borderColor: cat.color } 
-                        : { backgroundColor: isDark ? '#211F26' : '#f8fafc', borderColor: isDark ? '#334155' : '#e2e8f0' }
-                    ]}
-                  >
-                    {isSelected && <Check size={14} color="#fff" style={tw`mr-1.5`} />}
-                    <Text style={[tw`font-bold text-xs`, { color: isSelected ? '#fff' : textSecondary }]}>{cat.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-              <TouchableOpacity 
-                onPress={() => {
-                  setBudgetModalVisible(false);
-                  router.push('/categories');
-                }} 
-                style={[tw`flex-row items-center border border-dashed px-3.5 py-2 rounded-full h-10 min-h-[40px]`, { borderColor: accentColor, backgroundColor: `${accentColor}12` }]}
-              >
-                <Plus size={14} color={accentColor} style={tw`mr-1.5`} />
-                <Text style={[tw`font-bold text-xs`, { color: accentColor }]}>Add</Text>
-              </TouchableOpacity>
-            </GestureScrollView>
-
-            <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>
-              Monthly Limit ({currencySymbol})
-            </Text>
-            <TextInput
-              style={[tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-100 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-xl font-black mb-6 min-h-[48px]`, { color: textPrimary }]}
-              placeholder="0.00"
-              placeholderTextColor={textMuted}
-              keyboardType="numeric"
-              value={budgetAmount}
-              onChangeText={setBudgetAmount}
-            />
-            
-            <View style={tw`gap-3`}>
-              <TouchableOpacity onPress={handleSaveBudget} style={[tw`w-full py-4 rounded-2xl items-center shadow-md min-h-[48px] justify-center`, { backgroundColor: accentColor }]}>
-                <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>
-                  {editingBudgetId ? 'Update Budget' : 'Save Budget'}
-                </Text>
-              </TouchableOpacity>
-              {editingBudgetId && (
+      {/* Budget Bottom Sheet */}
+      <BottomSheet 
+        ref={budgetSheetRef} 
+        index={-1} 
+        snapPoints={['65%']} 
+        enablePanDownToClose 
+        backdropComponent={props => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} pressBehavior="close" />}
+        backgroundStyle={{ backgroundColor: isDark ? '#141218' : '#FEF7FF', borderTopLeftRadius: 24, borderTopRightRadius: 24 }} 
+        handleIndicatorStyle={{ backgroundColor: isDark ? '#334155' : '#cbd5e1' }}
+      >
+        <BottomSheetView style={tw`flex-1 px-6 pt-2 pb-8`}>
+          <Text style={[tw`text-xl font-black mb-5`, { color: textPrimary }]}>
+            {editingBudgetId ? 'Edit Category Budget' : 'Set Category Budget'}
+          </Text>
+          
+          <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Category</Text>
+          <GestureScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} style={tw`mb-5 max-h-12`} contentContainerStyle={tw`flex-row gap-2 pr-6`}>
+            {categories.map(cat => {
+              const isSelected = budgetCat === cat.name;
+              return (
                 <TouchableOpacity 
-                  onPress={() => handleDeleteBudget(editingBudgetId)} 
-                  style={tw`w-full bg-rose-50 dark:bg-rose-500/10 py-3.5 rounded-2xl items-center border border-rose-200 dark:border-rose-500/20 min-h-[48px] justify-center`}
+                  key={cat.id} 
+                  onPress={() => setBudgetCat(cat.name)} 
+                  style={[
+                    tw`flex-row items-center border px-4 py-2 rounded-full h-10 min-h-[40px]`, 
+                    isSelected 
+                      ? { backgroundColor: cat.color, borderColor: cat.color } 
+                      : { backgroundColor: isDark ? '#211F26' : '#f8fafc', borderColor: isDark ? '#334155' : '#e2e8f0' }
+                  ]}
                 >
-                  <Text style={tw`text-rose-500 font-bold text-base`}>Delete Budget</Text>
+                  {isSelected && <Check size={14} color="#fff" style={tw`mr-1.5`} />}
+                  <Text style={[tw`font-bold text-xs`, { color: isSelected ? '#fff' : textSecondary }]}>{cat.name}</Text>
                 </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-      </Modal>
+              );
+            })}
+            <TouchableOpacity 
+              onPress={() => {
+                budgetSheetRef.current?.close();
+                router.push('/categories');
+              }} 
+              style={[tw`flex-row items-center border border-dashed px-3.5 py-2 rounded-full h-10 min-h-[40px]`, { borderColor: accentColor, backgroundColor: `${accentColor}12` }]}
+            >
+              <Plus size={14} color={accentColor} style={tw`mr-1.5`} />
+              <Text style={[tw`font-bold text-xs`, { color: accentColor }]}>Add</Text>
+            </TouchableOpacity>
+          </GestureScrollView>
 
-      {/* Goal Modal */}
-      <Modal visible={goalModalVisible} transparent animationType="fade">
-        <View style={tw`flex-1 bg-black/50 items-center justify-center p-6`}>
-          <View style={tw`w-full bg-[#FEF7FF] dark:bg-[#211F26] rounded-3xl p-6 border border-slate-100 dark:border-slate-800`}>
-            <View style={tw`flex-row justify-between items-center mb-4`}>
-              <Text style={[tw`text-xl font-black`, { color: textPrimary }]}>Create New Goal</Text>
-              <TouchableOpacity onPress={() => setGoalModalVisible(false)} style={tw`p-1 min-h-[32px] justify-center`}>
-                <X size={20} color={textSecondary} />
-              </TouchableOpacity>
-            </View>
-            
-            <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Goal Name</Text>
-            <TextInput
-              style={[tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-100 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-base font-semibold mb-4 min-h-[48px]`, { color: textPrimary }]}
-              placeholder="e.g. New Laptop, Emergency Fund"
-              placeholderTextColor={textMuted}
-              value={goalTitle}
-              onChangeText={setGoalTitle}
-            />
-
-            <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>
-              Target Amount ({currencySymbol})
-            </Text>
-            <TextInput
-              style={[tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-100 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-xl font-black mb-6 min-h-[48px]`, { color: textPrimary }]}
-              placeholder="0.00"
-              placeholderTextColor={textMuted}
-              keyboardType="numeric"
-              value={goalTarget}
-              onChangeText={setGoalTarget}
-            />
-            
-            <View style={tw`flex-row gap-3`}>
-              <TouchableOpacity
-                onPress={() => setGoalModalVisible(false)}
-                style={tw`flex-1 py-3.5 rounded-2xl items-center bg-[#F3EDF7] dark:bg-[#2B2930] min-h-[48px] justify-center`}
+          <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>
+            Monthly Limit ({currencySymbol})
+          </Text>
+          <TextInput
+            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-100 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-xl font-black mb-6 min-h-[48px]`, { color: textPrimary }]}
+            placeholder="0.00"
+            placeholderTextColor={textMuted}
+            keyboardType="numeric"
+            value={budgetAmount}
+            onChangeText={setBudgetAmount}
+          />
+          
+          <View style={tw`mt-auto gap-3`}>
+            {editingBudgetId && (
+              <TouchableOpacity 
+                onPress={() => handleDeleteBudget(editingBudgetId)} 
+                style={tw`w-full bg-rose-50 dark:bg-rose-500/10 py-4 rounded-2xl items-center border border-rose-200 dark:border-rose-500/20 min-h-[48px] justify-center`}
               >
-                <Text style={[tw`font-bold text-sm`, { color: textSecondary }]}>Cancel</Text>
+                <Text style={tw`text-rose-500 font-bold text-base`}>Delete Budget</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                onPress={handleSaveGoal}
-                style={[tw`flex-2 py-3.5 rounded-2xl items-center shadow-md min-h-[48px] justify-center`, { backgroundColor: accentColor }]}
-              >
-                <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Start Saving</Text>
-              </TouchableOpacity>
-            </View>
+            )}
+            <TouchableOpacity onPress={handleSaveBudget} style={[tw`w-full py-4 rounded-2xl items-center shadow-md min-h-[48px] justify-center`, { backgroundColor: accentColor }]}>
+              <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>
+                {editingBudgetId ? 'Update Budget' : 'Save Budget'}
+              </Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+        </BottomSheetView>
+      </BottomSheet>
+
+      {/* Goal Bottom Sheet */}
+      <BottomSheet 
+        ref={goalSheetRef} 
+        index={-1} 
+        snapPoints={['60%']} 
+        enablePanDownToClose 
+        backdropComponent={props => <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.5} pressBehavior="close" />}
+        backgroundStyle={{ backgroundColor: isDark ? '#141218' : '#FEF7FF', borderTopLeftRadius: 24, borderTopRightRadius: 24 }} 
+        handleIndicatorStyle={{ backgroundColor: isDark ? '#334155' : '#cbd5e1' }}
+      >
+        <BottomSheetView style={tw`flex-1 px-6 pt-2 pb-8`}>
+          <Text style={[tw`text-xl font-black mb-5`, { color: textPrimary }]}>Create New Goal</Text>
+          
+          <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>Goal Name</Text>
+          <TextInput
+            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-100 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-base font-semibold mb-5 min-h-[48px]`, { color: textPrimary }]}
+            placeholder="e.g. New Laptop, Emergency Fund"
+            placeholderTextColor={textMuted}
+            value={goalTitle}
+            onChangeText={setGoalTitle}
+          />
+
+          <Text style={[tw`text-xs font-bold mb-2 uppercase tracking-wider`, { color: textSecondary }]}>
+            Target Amount ({currencySymbol})
+          </Text>
+          <TextInput
+            style={[tw`bg-[#F3EDF7] dark:bg-[#211F26] border border-slate-100 dark:border-slate-800 px-5 py-3.5 rounded-2xl text-xl font-black mb-6 min-h-[48px]`, { color: textPrimary }]}
+            placeholder="0.00"
+            placeholderTextColor={textMuted}
+            keyboardType="numeric"
+            value={goalTarget}
+            onChangeText={setGoalTarget}
+          />
+          
+          <TouchableOpacity onPress={handleSaveGoal} style={[tw`w-full py-4 rounded-2xl items-center mt-auto shadow-md min-h-[48px] justify-center`, { backgroundColor: accentColor }]}>
+            <Text style={[tw`font-bold text-base`, { color: textOnAccent }]}>Start Saving</Text>
+          </TouchableOpacity>
+        </BottomSheetView>
+      </BottomSheet>
 
       {/* Goal Deposit Modal */}
       <Modal visible={depositModalVisible} transparent animationType="fade">
@@ -663,7 +631,7 @@ export default function BudgetsScreen() {
           </View>
         </View>
       </Modal>
+
     </SafeAreaView>
-    </AmbientBackground>
   );
 }

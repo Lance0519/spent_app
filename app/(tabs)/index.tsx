@@ -14,8 +14,6 @@ import { FinanceService, Category, Account } from '../../services/FinanceService
 import { IconMap } from '../../utils/Icons';
 import { useTheme } from '../../context/ThemeContext';
 import { TransactionBottomSheet, TransactionBottomSheetRef, TransactionData } from '../../components/TransactionBottomSheet';
-import { AmbientBackground } from '../../components/AmbientBackground';
-import { GlassView } from '../../components/GlassView';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -106,85 +104,62 @@ export default function Dashboard() {
   };
 
   return (
-    <AmbientBackground style={tw`flex-1 relative`}>
-      {/* Header Gradient Card with High Contrast Specular Shimmer */}
-      <View style={tw`overflow-hidden rounded-b-[32px] border-b border-white/20 dark:border-white/10 shadow-lg`}>
-        <LinearGradient
-          colors={
-            isDark 
-              ? ['rgba(20, 17, 28, 0.96)', 'rgba(32, 28, 44, 0.90)'] 
-              : ['#0F172A', palette.dark]
-          }
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={tw`pt-14 pb-7 px-6 relative`}
-        >
-          {/* Top Specular Reflection */}
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0.20)', 'rgba(255, 255, 255, 0.0)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 0.5 }}
-            style={tw`absolute inset-0`}
-            pointerEvents="none"
-          />
+    <View style={tw`flex-1 bg-[#FEF7FF] dark:bg-[#141218] relative`}>
+      {/* Header Gradient Card */}
+      <LinearGradient
+        colors={isDark ? ['#141218', '#211F26'] : [palette.dark, palette.light]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={tw`pt-14 pb-7 px-6 rounded-b-3xl overflow-hidden border-b border-slate-800/40`}
+      >
+        <View style={tw`flex-row justify-between items-center mb-5`}>
+          <View>
+            <View style={tw`flex-row items-center mb-1`}>
+              <Text style={tw`text-blue-100 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mr-2`}>
+                Total Balance
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setShowBalance(!showBalance)}
+                style={tw`min-h-[32px] min-w-[32px] items-center justify-center`}
+              >
+                {showBalance ? <Eye color={isDark ? '#94a3b8' : '#bfdbfe'} size={16} /> : <EyeOff color={isDark ? '#94a3b8' : '#bfdbfe'} size={16} />}
+              </TouchableOpacity>
+            </View>
+            <Text style={tw`text-white text-4xl font-black tracking-tight`}>
+              {showBalance ? formatCurrency(balance) : '••••••••'}
+            </Text>
+          </View>
+        </View>
 
-          <View style={tw`flex-row justify-between items-center mb-5`}>
+        {/* Monthly Income & Expense Cards */}
+        <View style={tw`flex-row justify-between gap-3`}>
+          <View style={tw`flex-row items-center bg-emerald-500/20 border border-emerald-400/20 px-4 py-3 rounded-2xl flex-1`}>
             <View>
-              <View style={tw`flex-row items-center mb-1`}>
-                <Text style={tw`text-slate-300 text-xs font-bold uppercase tracking-wider mr-2`}>
-                  Total Balance
-                </Text>
-                <TouchableOpacity 
-                  onPress={() => setShowBalance(!showBalance)}
-                  style={tw`min-h-[32px] min-w-[32px] items-center justify-center`}
-                >
-                  {showBalance ? <Eye color="#cbd5e1" size={16} /> : <EyeOff color="#cbd5e1" size={16} />}
-                </TouchableOpacity>
-              </View>
-              <Text style={tw`text-white text-4xl font-black tracking-tight`}>
-                {showBalance ? formatCurrency(balance) : '••••••••'}
+              <Text style={tw`text-emerald-100 dark:text-emerald-400 text-xs font-semibold`}>This Month Income</Text>
+              <Text style={tw`text-white font-black text-sm mt-0.5`}>
+                {showBalance ? formatCurrency(totalMonthlyIncome) : '••••••'}
               </Text>
             </View>
           </View>
 
-          {/* Monthly Income & Expense Glass Cards */}
-          <View style={tw`flex-row justify-between gap-3`}>
-            <GlassView 
-              level="control" 
-              borderRadius={18} 
-              borderColor={isDark ? "rgba(52, 211, 153, 0.45)" : "rgba(16, 185, 129, 0.35)"}
-              style={tw`flex-1`}
-              contentStyle={tw`px-4 py-3`}
-            >
-              <Text style={[tw`text-xs font-extrabold tracking-wide`, { color: isDark ? '#34D399' : '#047857' }]}>This Month Income</Text>
-              <Text style={[tw`font-black text-base mt-0.5`, { color: isDark ? '#FFFFFF' : '#1E293B' }]}>
-                {showBalance ? formatCurrency(totalMonthlyIncome) : '••••••'}
-              </Text>
-            </GlassView>
-
-            <GlassView 
-              level="control" 
-              borderRadius={18} 
-              borderColor={isDark ? "rgba(251, 113, 133, 0.45)" : "rgba(244, 63, 94, 0.35)"}
-              style={tw`flex-1`}
-              contentStyle={tw`px-4 py-3`}
-            >
-              <Text style={[tw`text-xs font-extrabold tracking-wide`, { color: isDark ? '#FB7185' : '#BE123C' }]}>This Month Expenses</Text>
-              <Text style={[tw`font-black text-base mt-0.5`, { color: isDark ? '#FFFFFF' : '#1E293B' }]}>
+          <View style={tw`flex-row items-center bg-rose-500/20 border border-rose-400/20 px-4 py-3 rounded-2xl flex-1`}>
+            <View>
+              <Text style={tw`text-rose-100 dark:text-rose-400 text-xs font-semibold`}>This Month Expenses</Text>
+              <Text style={tw`text-white font-black text-sm mt-0.5`}>
                 {showBalance ? formatCurrency(totalMonthlyExpenses) : '••••••'}
               </Text>
-            </GlassView>
+            </View>
           </View>
-        </LinearGradient>
-      </View>
+        </View>
+      </LinearGradient>
 
-      {/* Quick Actions Row with Frosted Glass Controls */}
-      <View style={tw`flex-row justify-between px-8 py-5`}>
+      {/* Quick Actions Row (48px Touch Targets) */}
+      <View style={tw`flex-row justify-between px-8 py-5 bg-[#FEF7FF] dark:bg-[#141218]`}>
         {[
-          { icon: Target, label: 'Budget', color: '#7C3AED', action: () => router.push('/budgets') },
-          { icon: PieChart, label: 'Analytics', color: '#059669', action: () => router.push('/analytics') },
-          { icon: List, label: 'Reminders', color: '#D97706', action: () => router.push('/reminders') },
-          { icon: Download, label: 'Export', color: '#2563EB', action: handleExportData },
+          { icon: Target, label: 'Budget', color: '#8b5cf6', action: () => router.push('/budgets') },
+          { icon: PieChart, label: 'Analytics', color: '#10b981', action: () => router.push('/analytics') },
+          { icon: List, label: 'Reminders', color: '#f59e0b', action: () => router.push('/reminders') },
+          { icon: Download, label: 'Export', color: '#06b6d4', action: handleExportData },
         ].map((item, i) => (
           <TouchableOpacity 
             key={i} 
@@ -192,21 +167,16 @@ export default function Dashboard() {
             onPress={item.action}
             activeOpacity={0.7}
           >
-            <GlassView 
-              level="control" 
-              borderRadius={24}
-              style={tw`w-13 h-13 mb-1.5`}
-              contentStyle={tw`w-full h-full items-center justify-center`}
-            >
+            <View style={tw`w-13 h-13 bg-[#F4EFF4] dark:bg-[#211F26] rounded-full items-center justify-center mb-1.5 border border-slate-100 dark:border-slate-800 shadow-sm`}>
               <item.icon size={22} color={item.color} />
-            </GlassView>
-            <Text style={tw`text-xs font-extrabold text-slate-800 dark:text-slate-200`}>{item.label}</Text>
+            </View>
+            <Text style={[tw`text-xs font-bold`, { color: textSecondary }]}>{item.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Recent Transactions List with Frosted Glass Container */}
-      <View style={tw`flex-1 px-6 pb-26`}>
+      {/* Recent Transactions List with Empty State */}
+      <View style={tw`flex-1 px-6 pb-6`}>
         <View style={tw`flex-row items-center justify-between mb-3`}>
           <Text style={[tw`text-lg font-black`, { color: textPrimary }]}>Recent Transactions</Text>
           <TouchableOpacity onPress={() => router.push('/(tabs)/transactions')} style={tw`min-h-[32px] justify-center`}>
@@ -214,18 +184,13 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
 
-        <GlassView 
-          level="container" 
-          borderRadius={24} 
-          style={tw`flex-1`}
-          contentStyle={tw`p-3 flex-1`}
-        >
+        <View style={tw`flex-1 bg-[#F4EFF4] dark:bg-[#211F26] rounded-3xl p-3 border border-slate-100 dark:border-slate-800 overflow-hidden`}>
           <FlashList
             data={transactions}
             estimatedItemSize={76}
             ListEmptyComponent={() => (
               <View style={tw`items-center justify-center py-14 px-4`}>
-                <View style={tw`w-14 h-14 rounded-full bg-white/20 dark:bg-white/5 items-center justify-center mb-3 border border-white/20 dark:border-white/10`}>
+                <View style={tw`w-14 h-14 rounded-full bg-[#F3EDF7] dark:bg-[#2B2930] items-center justify-center mb-3`}>
                   <List size={26} color={textMuted} />
                 </View>
                 <Text style={[tw`font-bold text-base mb-1`, { color: textPrimary }]}>No transactions yet</Text>
@@ -245,11 +210,11 @@ export default function Dashboard() {
               return (
                 <TouchableOpacity 
                   onPress={() => bottomSheetRef.current?.openEdit(item)} 
-                  style={tw`flex-row items-center justify-between py-3 px-2 border-b border-white/20 dark:border-white/5 min-h-[56px]`}
+                  style={tw`flex-row items-center justify-between py-3 px-2 border-b border-slate-100/80 dark:border-slate-800/50 min-h-[56px]`}
                   activeOpacity={0.7}
                 >
                   <View style={tw`flex-row items-center flex-1 mr-2`}>
-                    <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3 border border-white/20 dark:border-white/5`, { backgroundColor: `${catColor}20` }]}>
+                    <View style={[tw`w-10 h-10 rounded-full items-center justify-center mr-3`, { backgroundColor: `${catColor}15` }]}>
                       <IconComp size={18} color={catColor} />
                     </View>
                     <View style={tw`flex-1`}>
@@ -261,13 +226,13 @@ export default function Dashboard() {
                           {item.category} • {formatDateLabel(item.date)}
                         </Text>
                         {item.notes ? (
-                          <View style={[tw`px-1.5 py-0.5 rounded-md flex-row items-center border border-white/20 dark:border-white/10`, { backgroundColor: `${accentColor}18` }]}>
+                          <View style={[tw`px-1.5 py-0.5 rounded-md flex-row items-center`, { backgroundColor: `${accentColor}18` }]}>
                             <Receipt size={10} color={accentColor} style={tw`mr-0.5`} />
                             <Text style={[tw`text-[10px] font-bold`, { color: accentColor }]}>Receipt</Text>
                           </View>
                         ) : null}
                         {isLoan && item.due_date && (
-                          <View style={tw`bg-amber-500/15 border border-amber-400/20 px-2 py-0.5 rounded-full flex-row items-center`}>
+                          <View style={tw`bg-amber-100 dark:bg-amber-500/10 px-2 py-0.5 rounded-full flex-row items-center`}>
                             <Clock size={10} color="#f59e0b" style={tw`mr-1`} />
                             <Text style={tw`text-[10px] font-bold text-amber-600 dark:text-amber-400`}>
                               Due {formatDateLabel(item.due_date)}
@@ -294,25 +259,22 @@ export default function Dashboard() {
               );
             }}
           />
-        </GlassView>
+        </View>
       </View>
 
-      {/* Floating Action Button (FAB) floating above frosted tab bar */}
+      {/* Floating Action Button (FAB) */}
       <TouchableOpacity
-        style={[
-          tw`absolute bottom-24 right-6 w-15 h-15 rounded-full shadow-2xl min-h-[48px] min-w-[48px] border-2 border-white/50 dark:border-white/20`,
-          { elevation: 12, shadowColor: accentColor }
-        ]}
+        style={[tw`absolute bottom-6 right-6 w-16 h-16 rounded-full shadow-xl min-h-[48px] min-w-[48px]`, { elevation: 10, shadowColor: accentColor }]}
         onPress={() => bottomSheetRef.current?.openAdd('expense')}
         activeOpacity={0.85}
       >
         <LinearGradient colors={[palette.light, palette.dark]} style={tw`w-full h-full rounded-full items-center justify-center`}>
-          <Plus color="#fff" size={26} />
+          <Plus color="#fff" size={28} />
         </LinearGradient>
       </TouchableOpacity>
 
       {/* Shared Transaction Entry Bottom Sheet */}
       <TransactionBottomSheet ref={bottomSheetRef} onSuccess={fetchData} />
-    </AmbientBackground>
+    </View>
   );
 }
